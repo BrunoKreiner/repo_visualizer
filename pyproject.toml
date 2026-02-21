@@ -1,0 +1,48 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "repo-visualizer"
+version = "0.1.0"
+description = "Generate interactive architecture diagrams for any Python repository"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    {name = "Bruno Kreiner"},
+]
+keywords = ["architecture", "visualization", "code-analysis", "ast", "diagram", "codebase"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Documentation",
+    "Topic :: Software Development :: Quality Assurance",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0", "pytest-cov", "ruff"]
+
+[project.scripts]
+repo-visualizer = "repo_visualizer.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/BrunoKreiner/repo_visualizer"
+Repository = "https://github.com/BrunoKreiner/repo_visualizer"
+Issues = "https://github.com/BrunoKreiner/repo_visualizer/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/repo_visualizer"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"

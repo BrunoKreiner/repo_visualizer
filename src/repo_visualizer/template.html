@@ -1,0 +1,2718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>__DIAGRAM_TITLE__</title>
+<style>
+/* ===== CSS CUSTOM PROPERTIES ===== */
+:root {
+    --bg: #0B1120;
+    --card-bg: #151D2E;
+    --card-border: #1E293B;
+    --card-hover: #1A2538;
+    --header-bg: #0D1526;
+    --header-h: 52px;
+    --sidebar-w: 280px;
+    --panel-w: 220px;
+    --panel-collapsed-w: 32px;
+    --text-primary: #E2E8F0;
+    --text-secondary: #94A3B8;
+    --text-muted: #64748B;
+    --accent-blue: #3B82F6;
+    --accent-cyan: #06B6D4;
+    --accent-purple: #8B5CF6;
+    --accent-orange: #F59E0B;
+    --accent-green: #22C55E;
+    --accent-red: #EF4444;
+    --accent-pink: #EC4899;
+    --accent-teal: #14B8A6;
+    --dot-grid: radial-gradient(circle, rgba(100,116,139,0.35) 1.2px, transparent 1.2px);
+    --font-ui: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    --font-code: 'Cascadia Code', 'Consolas', 'Fira Code', monospace;
+    --transition-fast: 0.15s ease;
+    --transition-normal: 0.2s ease;
+    --glow-blue: 0 0 12px rgba(59,130,246,0.5);
+    --glow-search: 0 0 16px rgba(6,182,212,0.6);
+    --focus-dim: 0.18;
+    /* Edge colors */
+    --edge-dependency: #3B82F6;
+    --edge-inheritance: #8B5CF6;
+    --edge-factory: #F59E0B;
+    --edge-data: #64748B;
+    /* Coupling badge */
+    --coupling-green: #22C55E;
+    --coupling-yellow: #F59E0B;
+    --coupling-red: #EF4444;
+    /* Tier label colors */
+    --tier0: #3B82F6;
+    --tier1: #06B6D4;
+    --tier2: #8B5CF6;
+    --tier3: #EC4899;
+    --tier4: #14B8A6;
+    --tier5: #F59E0B;
+    --tier6: #64748B;
+}
+/* ===== RESET & BASE ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(--text-primary); font-family: var(--font-ui); font-size: 13px; line-height: 1.5; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+/* ===== LAYOUT ===== */
+#app { display: flex; flex-direction: column; height: 100vh; }
+#header {
+    height: var(--header-h);
+    background: var(--header-bg);
+    border-bottom: 1px solid var(--card-border);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 12px;
+    z-index: 100;
+    flex-shrink: 0;
+}
+#header h1 { font-size: 14px; font-weight: 600; white-space: nowrap; }
+#header .sep { width: 1px; height: 24px; background: var(--card-border); }
+
+/* Search */
+#search-box {
+    display: flex; align-items: center; gap: 6px;
+    background: var(--card-bg); border: 1px solid var(--card-border);
+    border-radius: 6px; padding: 4px 10px; width: 240px;
+    transition: border-color var(--transition-fast);
+}
+#search-box:focus-within { border-color: var(--accent-blue); }
+#search-box svg { flex-shrink: 0; color: var(--text-muted); }
+#search-input {
+    background: transparent; border: none; outline: none;
+    color: var(--text-primary); font-size: 12px; width: 100%;
+    font-family: var(--font-ui);
+}
+#search-input::placeholder { color: var(--text-muted); }
+
+/* Zoom controls */
+.zoom-controls {
+    display: flex; align-items: center; gap: 4px;
+    background: var(--card-bg); border: 1px solid var(--card-border);
+    border-radius: 6px; padding: 2px 4px;
+}
+.zoom-btn {
+    background: transparent; border: none; color: var(--text-secondary);
+    cursor: pointer; width: 26px; height: 26px; display: flex;
+    align-items: center; justify-content: center; border-radius: 4px;
+    font-size: 13px; font-weight: 600; transition: all var(--transition-fast);
+}
+.zoom-btn:hover { background: #1E293B; color: var(--text-primary); }
+#zoom-level { color: var(--text-muted); font-size: 11px; min-width: 36px; text-align: center; font-family: var(--font-code); }
+
+/* Smells toggle */
+#smells-toggle {
+    background: var(--card-bg); border: 1px solid var(--card-border);
+    border-radius: 6px; padding: 4px 10px; cursor: pointer;
+    color: var(--accent-orange); font-size: 11px; font-weight: 600;
+    transition: all var(--transition-fast); white-space: nowrap;
+}
+#smells-toggle:hover { background: #1E293B; border-color: var(--accent-orange); }
+
+.header-spacer { flex: 1; }
+
+/* Main body */
+#body { display: flex; flex: 1; overflow: hidden; position: relative; }
+
+/* ===== LEFT SIDEBAR ===== */
+#sidebar {
+    width: var(--sidebar-w);
+    flex-shrink: 0;
+    background: var(--header-bg);
+    border-right: 1px solid var(--card-border);
+    display: flex;
+    flex-direction: column;
+    z-index: 50;
+}
+#sidebar-tabs {
+    display: flex; gap: 0; border-bottom: 1px solid var(--card-border); flex-shrink: 0;
+}
+.sidebar-tab {
+    flex: 1; padding: 8px 0; background: transparent; border: none;
+    border-bottom: 2px solid transparent; color: var(--text-muted);
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    position: relative; transition: all var(--transition-fast);
+}
+.sidebar-tab:hover { color: var(--text-secondary); }
+.sidebar-tab.active { color: var(--text-primary); border-bottom-color: var(--accent-blue); }
+.sidebar-tab svg { width: 16px; height: 16px; }
+.tab-badge {
+    position: absolute; top: 2px; right: 2px; font-size: 8px; padding: 0 4px;
+    border-radius: 6px; background: var(--accent-blue); color: #fff; font-weight: 700;
+    min-width: 14px; text-align: center; line-height: 14px;
+}
+.sidebar-content { flex: 1; overflow-y: auto; padding: 10px; }
+.tab-panel { display: flex; flex-direction: column; gap: 12px; }
+.tab-panel-header {
+    font-size: 11px; font-weight: 700; color: var(--text-primary); text-transform: uppercase;
+    letter-spacing: 0.06em; display: flex; align-items: center; justify-content: space-between;
+}
+.sidebar-section h3 {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 8px;
+}
+/* Group toggles */
+.group-toggle {
+    display: flex; align-items: center; gap: 8px; padding: 4px 0;
+    cursor: pointer; user-select: none;
+}
+.group-toggle input[type="checkbox"] { display: none; }
+.group-toggle .check-box {
+    width: 14px; height: 14px; border-radius: 3px; border: 1px solid var(--card-border);
+    display: flex; align-items: center; justify-content: center;
+    transition: all var(--transition-fast); flex-shrink: 0;
+}
+.group-toggle input:checked + .check-box { background: var(--accent-blue); border-color: var(--accent-blue); }
+.group-toggle input:checked + .check-box::after { content: ''; display: block; width: 8px; height: 5px; border-left: 2px solid #fff; border-bottom: 2px solid #fff; transform: rotate(-45deg) translateY(-1px); }
+.group-toggle .label { font-size: 12px; color: var(--text-secondary); }
+/* Stats */
+.stat-row { display: flex; justify-content: space-between; padding: 2px 0; }
+.stat-label { font-size: 11px; color: var(--text-muted); }
+.stat-value { font-size: 11px; color: var(--text-primary); font-family: var(--font-code); }
+/* Edge legend */
+.edge-legend-item {
+    display: flex; align-items: center; gap: 8px; padding: 3px 0;
+}
+.edge-legend-line {
+    width: 28px; height: 4px; flex-shrink: 0;
+}
+.edge-legend-label { font-size: 11px; color: var(--text-secondary); }
+/* Controls help */
+.controls-help { font-size: 11px; color: var(--text-muted); line-height: 1.6; }
+.controls-help kbd {
+    display: inline-block; padding: 1px 5px; background: var(--card-bg);
+    border: 1px solid var(--card-border); border-radius: 3px; font-family: var(--font-code);
+    font-size: 10px; color: var(--text-secondary);
+}
+/* ===== FILE TREE ===== */
+.tree-dir, .tree-file {
+    display: flex; align-items: center; gap: 5px; padding: 2px 4px;
+    cursor: pointer; font-size: 11px; color: var(--text-secondary);
+    border-radius: 3px; user-select: none; border-left: 2px solid transparent;
+}
+.tree-dir:hover, .tree-file:hover { background: rgba(255,255,255,0.04); color: var(--text-primary); }
+.tree-children { padding-left: 14px; }
+.tree-children.collapsed { display: none; }
+.tree-dir-arrow { font-size: 8px; width: 10px; text-align: center; color: var(--text-muted); transition: transform var(--transition-fast); }
+.tree-dir-arrow.collapsed { transform: rotate(-90deg); }
+.tree-file.referenced { color: var(--accent-cyan); }
+.tree-file-focused { background: rgba(59,130,246,0.22); color: var(--text-primary); border-left-color: var(--accent-blue); }
+.tree-file-connected { background: rgba(34,211,238,0.08); color: var(--accent-cyan); border-left-color: var(--accent-cyan); }
+
+/* ===== TODO LIST ===== */
+.todo-item {
+    display: flex; align-items: flex-start; gap: 8px; padding: 6px 8px;
+    background: var(--card-bg); border: 1px solid var(--card-border);
+    border-radius: 6px; margin-bottom: 4px; position: relative;
+    transition: all var(--transition-fast); border-left: 3px solid transparent;
+}
+.todo-item:hover { background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.08); border-left-color: var(--accent-blue); }
+.todo-item.done { opacity: 0.5; }
+.todo-item.done:hover { opacity: 0.7; }
+.todo-cb-wrap { position: relative; width: 16px; height: 16px; flex-shrink: 0; margin-top: 1px; }
+.todo-cb-wrap input { position: absolute; opacity: 0; width: 16px; height: 16px; cursor: pointer; margin: 0; z-index: 1; }
+.todo-cb-custom {
+    width: 16px; height: 16px; border-radius: 4px; border: 1.5px solid var(--card-border);
+    display: flex; align-items: center; justify-content: center;
+    transition: all var(--transition-fast); background: transparent;
+}
+.todo-cb-wrap input:checked + .todo-cb-custom { background: var(--accent-green); border-color: var(--accent-green); }
+.todo-cb-wrap input:checked + .todo-cb-custom::after {
+    content: ''; display: block; width: 8px; height: 5px;
+    border-left: 2px solid #fff; border-bottom: 2px solid #fff;
+    transform: rotate(-45deg) translateY(-1px);
+}
+.todo-cb-wrap:hover .todo-cb-custom { border-color: var(--accent-blue); }
+.todo-text { font-size: 11px; color: var(--text-secondary); flex: 1; word-break: break-word; line-height: 1.5; }
+.todo-text.done { text-decoration: line-through; color: var(--text-muted); }
+.todo-node-link {
+    font-size: 9px; color: var(--accent-blue); cursor: pointer;
+    font-family: var(--font-code); display: inline-flex; align-items: center; gap: 3px;
+    padding: 1px 4px; background: rgba(59,130,246,0.08); border-radius: 3px; margin-top: 3px;
+}
+.todo-node-link:hover { background: rgba(59,130,246,0.18); text-decoration: underline; }
+.todo-del {
+    background: transparent; border: none; color: var(--text-muted); cursor: pointer;
+    font-size: 14px; padding: 0 4px; line-height: 1; flex-shrink: 0;
+    opacity: 0; transition: opacity var(--transition-fast);
+}
+.todo-item:hover .todo-del { opacity: 1; }
+.todo-del:hover { color: var(--accent-red); }
+.todo-input-area { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--card-border); }
+#todo-input {
+    width: 100%; background: var(--bg); border: 1px solid var(--card-border);
+    border-radius: 6px; padding: 6px 10px; color: var(--text-primary);
+    font-size: 11px; font-family: var(--font-ui); outline: none;
+    transition: border-color var(--transition-fast);
+}
+#todo-input:focus { border-color: var(--accent-blue); box-shadow: 0 0 0 2px rgba(59,130,246,0.15); }
+#todo-input::placeholder { color: var(--text-muted); }
+#todo-link-node {
+    width: 100%; background: var(--bg); border: 1px solid var(--card-border);
+    border-radius: 6px; padding: 4px 6px; color: var(--text-secondary);
+    font-size: 10px; margin-top: 4px;
+}
+.export-btn {
+    background: var(--card-bg); border: 1px solid var(--card-border);
+    color: var(--text-secondary); font-size: 11px; padding: 5px 10px;
+    border-radius: 6px; cursor: pointer; width: 100%; margin-top: 8px;
+    transition: all var(--transition-fast);
+}
+.export-btn:hover { border-color: var(--accent-blue); color: var(--accent-blue); }
+
+/* ===== CODE MAP ===== */
+/* Sidebar mini-nav for code tab */
+#code-map-empty { font-size: 11px; color: var(--text-muted); text-align: center; padding: 24px 0; }
+#code-map-nav { display: flex; flex-direction: column; gap: 2px; }
+.code-nav-item {
+    display: flex; align-items: center; gap: 6px; padding: 4px 8px;
+    font-size: 10px; font-family: var(--font-code); cursor: pointer;
+    border-radius: 4px; transition: background var(--transition-fast);
+    color: var(--text-secondary);
+}
+.code-nav-item:hover { background: rgba(255,255,255,0.05); }
+.code-nav-item.active { background: rgba(59,130,246,0.12); color: var(--accent-blue); }
+.code-nav-item.is-class { color: var(--accent-purple); font-weight: 600; }
+.code-nav-item.is-method { padding-left: 20px; color: var(--accent-cyan); }
+.code-nav-item.is-fn { color: var(--accent-cyan); }
+.code-nav-item .nav-badge {
+    margin-left: auto; font-size: 8px; padding: 1px 4px; border-radius: 3px;
+    font-weight: 600;
+}
+.code-nav-item .nav-badge.cc-low { background: rgba(34,197,94,0.12); color: #4ade80; }
+.code-nav-item .nav-badge.cc-med { background: rgba(245,158,11,0.12); color: #fbbf24; }
+.code-nav-item .nav-badge.cc-high { background: rgba(239,68,68,0.12); color: #f87171; }
+.code-nav-file {
+    font-size: 10px; color: var(--accent-cyan); font-family: var(--font-code);
+    padding: 6px 8px; margin-bottom: 4px; word-break: break-all;
+    border-bottom: 1px solid var(--card-border);
+}
+.code-nav-file .loc-info { color: var(--text-muted); font-size: 9px; display: block; margin-top: 2px; }
+/* Code map floating modal backdrop */
+#code-map-backdrop {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+    z-index: 200; backdrop-filter: blur(2px);
+}
+#code-map-backdrop.visible { display: block; }
+/* Floating card */
+#code-map-panel {
+    display: none; position: fixed;
+    top: 5vh; left: 50%; transform: translateX(-50%);
+    width: min(92vw, 1100px); max-height: 88vh;
+    background: var(--header-bg); border: 1px solid var(--card-border);
+    border-radius: 12px; box-shadow: 0 24px 80px rgba(0,0,0,0.7);
+    z-index: 201; overflow: hidden;
+    display: none; flex-direction: column;
+}
+#code-map-panel.visible { display: flex; }
+#code-map-panel-header {
+    display: flex; align-items: center; gap: 12px; padding: 14px 20px;
+    border-bottom: 1px solid var(--card-border); flex-shrink: 0;
+    background: rgba(255,255,255,0.02);
+}
+#code-map-panel-header .node-label {
+    font-size: 13px; font-weight: 700; color: var(--text-primary);
+}
+#code-map-panel-header .file-path {
+    font-family: var(--font-code); font-size: 11px; color: var(--accent-cyan);
+    word-break: break-all;
+}
+#code-map-panel-header .file-meta {
+    margin-left: auto; font-size: 10px; color: var(--text-muted); flex-shrink: 0;
+}
+#code-map-panel-header .close-btn {
+    background: transparent; border: 1px solid var(--card-border); border-radius: 6px;
+    color: var(--text-muted); cursor: pointer; padding: 3px 9px; font-size: 16px; line-height: 1;
+    transition: all var(--transition-fast); flex-shrink: 0;
+}
+#code-map-panel-header .close-btn:hover { background: rgba(239,68,68,0.1); color: var(--accent-red); border-color: var(--accent-red); }
+#code-map-panel-body {
+    display: flex; flex: 1; overflow: hidden;
+}
+/* Left nav pane */
+#code-map-nav-pane {
+    width: 200px; flex-shrink: 0; overflow-y: auto;
+    border-right: 1px solid var(--card-border);
+    padding: 8px 0;
+}
+/* Right content pane */
+#code-map-panel-content {
+    flex: 1; overflow-y: auto; padding: 16px 24px 32px;
+    display: flex; flex-direction: column; gap: 10px;
+}
+.code-map-file {
+    font-size: 10px; color: var(--accent-cyan); font-family: var(--font-code);
+    padding: 4px 8px; background: var(--card-bg); border: 1px solid var(--card-border);
+    border-radius: 4px; margin-bottom: 8px; word-break: break-all;
+    display: flex; justify-content: space-between; align-items: center;
+}
+.code-map-file .loc-info { color: var(--text-muted); font-size: 9px; }
+.code-map-class {
+    margin-bottom: 12px; border: 1px solid var(--card-border); border-radius: 8px;
+    overflow: hidden; background: var(--card-bg);
+}
+.code-map-class-header {
+    display: flex; align-items: center; gap: 8px; padding: 10px 14px;
+    background: rgba(139,92,246,0.06); border-bottom: 1px solid var(--card-border);
+    cursor: pointer; font-size: 13px;
+}
+.code-map-class-header:hover { background: rgba(139,92,246,0.12); }
+.code-map-class-name { color: var(--accent-purple); font-weight: 600; font-family: var(--font-code); }
+.code-map-class-meta { color: var(--text-muted); font-size: 10px; font-family: var(--font-code); margin-left: auto; }
+.code-map-methods { padding: 4px 0 4px 16px; }
+/* ── continuous code view ── */
+.code-view-wrap {
+    background: #0a0f1e; border: 1px solid var(--card-border); border-radius: 8px;
+    overflow: auto; flex: 1; min-height: 0;
+}
+.code-view-pre {
+    margin: 0; padding: 12px 24px 32px 8px; font-family: var(--font-code); font-size: 12px;
+    line-height: 1.75; color: #abb2bf; white-space: pre; tab-size: 4; min-width: max-content;
+}
+/* fn separator banner rendered inline in the pre via a block-level span */
+.fn-sep {
+    display: block; padding: 4px 0 4px 8px; margin: 6px 0 0;
+    border-top: 1px solid rgba(255,255,255,0.06);
+    font-size: 10px; font-style: normal; color: transparent; /* badges shown via ::after */
+    position: relative;
+}
+.fn-sep-label {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: #0a0f1e; padding: 2px 10px 2px 0; position: relative; z-index: 1;
+}
+.fn-sep-name { color: var(--accent-cyan); font-weight: 600; }
+.fn-sep-sig  { color: #64748b; }
+.fn-sep-badges { display: inline-flex; gap: 4px; }
+.fn-sep-badge {
+    font-size: 9px; padding: 1px 5px; border-radius: 3px; font-weight: 700;
+}
+.fn-sep-badge.cc-low  { background: rgba(34,197,94,0.12);  color: #4ade80; }
+.fn-sep-badge.cc-med  { background: rgba(245,158,11,0.12); color: #fbbf24; }
+.fn-sep-badge.cc-high { background: rgba(239,68,68,0.12);  color: #f87171; }
+.fn-sep-badge.in-node { background: rgba(59,130,246,0.15); color: #60a5fa; }
+/* call-flow chips row (also block span inside pre) */
+.fn-calls-row {
+    display: block; padding: 2px 0 2px 46px; font-size: 10px; white-space: normal;
+}
+.fn-calledby-row {
+    display: block; padding: 2px 0 2px 46px; font-size: 10px; white-space: normal;
+}
+.fn-row-label { color: #475569; font-size: 9px; margin-right: 2px; }
+.call-chip {
+    display: inline-block;
+    background: rgba(6,182,212,0.1); border: 1px solid rgba(6,182,212,0.25);
+    color: var(--accent-cyan); border-radius: 4px; padding: 0 6px; margin: 1px 3px 1px 0;
+    font-family: var(--font-code); cursor: pointer; transition: all var(--transition-fast);
+    font-size: 10px; line-height: 1.6;
+}
+.call-chip:hover { background: rgba(6,182,212,0.22); border-color: var(--accent-cyan); }
+.call-chip.ext { background: rgba(139,92,246,0.1); border-color: rgba(139,92,246,0.25); color: var(--accent-purple); }
+.call-chip.ext:hover { background: rgba(139,92,246,0.2); border-color: var(--accent-purple); }
+/* inline call-site highlights inside the highlighted source */
+.ci { /* call-internal: same-file call */ border-bottom: 1px solid rgba(6,182,212,0.6); color: #67e8f9; cursor: pointer; }
+.ci:hover { background: rgba(6,182,212,0.12); border-radius: 2px; }
+.ce { /* call-external: cross-file/stdlib call */ border-bottom: 1px dashed rgba(139,92,246,0.5); color: #c4b5fd; }
+/* node-link: class/node reference in code that links to another node's code view */
+.cn {
+    border-bottom: 2px solid rgba(245,158,11,0.7); color: #fcd34d; cursor: pointer;
+    position: relative; transition: background var(--transition-fast);
+}
+.cn:hover { background: rgba(245,158,11,0.12); border-radius: 2px; }
+/* tooltip on .cn hover */
+.cn-tip {
+    display: none; position: absolute; bottom: calc(100% + 6px); left: 0;
+    background: #1e293b; border: 1px solid var(--card-border); border-radius: 6px;
+    padding: 8px 12px; font-size: 11px; color: var(--text-primary); z-index: 300;
+    white-space: nowrap; box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+    font-family: var(--font-ui); pointer-events: none; min-width: 180px;
+}
+.cn-tip .tip-name { color: #fcd34d; font-weight: 700; font-size: 12px; display: block; margin-bottom: 4px; }
+.cn-tip .tip-file { color: var(--accent-cyan); font-family: var(--font-code); font-size: 10px; display: block; }
+.cn-tip .tip-hint { color: var(--text-muted); font-size: 10px; margin-top: 4px; display: block; }
+.cn:hover .cn-tip { display: block; }
+/* class banner */
+.cls-sep {
+    display: block; padding: 10px 0 2px 8px; margin-top: 8px;
+    border-top: 1px solid rgba(139,92,246,0.2);
+}
+.cls-sep-label { color: var(--accent-purple); font-weight: 700; font-size: 11px; }
+.cls-sep-meta  { color: #64748b; font-size: 10px; margin-left: 8px; }
+/* node highlight */
+.fn-sep.in-node .fn-sep-name { color: #60a5fa; }
+/* anchor target flash */
+.fn-anchor { display: block; position: relative; }
+.fn-anchor.flash { animation: flash-line 1s ease-out; }
+@keyframes flash-line { 0%,20% { background: rgba(59,130,246,0.1); } 100% { background: transparent; } }
+/* deps bar */
+.code-map-deps {
+    margin-top: 12px; padding: 12px 16px; background: var(--card-bg);
+    border: 1px solid var(--card-border); border-radius: 8px;
+}
+.code-map-deps-title { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); font-weight: 700; margin-bottom: 6px; }
+.code-map-deps .dep-tags { display: flex; flex-wrap: wrap; gap: 5px; }
+/* badges used in nav */
+.code-map-badge {
+    font-size: 9px; padding: 2px 6px; border-radius: 4px; font-family: var(--font-code); font-weight: 600;
+}
+.code-map-badge.cc-low { background: rgba(34,197,94,0.12); color: #4ade80; }
+.code-map-badge.cc-med { background: rgba(245,158,11,0.12); color: #fbbf24; }
+.code-map-badge.cc-high { background: rgba(239,68,68,0.12); color: #f87171; }
+.code-map-badge.in-node { background: rgba(59,130,246,0.15); color: #60a5fa; }
+/* Keep syntax highlighting classes */
+.ln { color: var(--text-muted); display: inline-block; width: 36px; text-align: right; margin-right: 10px; user-select: none; }
+.sk { color: #C792EA; }
+.ss { color: #C3E88D; }
+.sc { color: #546E7A; font-style: italic; }
+.sf { color: #82AAFF; }
+.sd { color: #FFCB6B; }
+.sn { color: #F78C6C; }
+.sl { color: #F07178; }
+
+/* ===== CENTER AREA ===== */
+#center {
+    flex: 1;
+    overflow: auto;
+    position: relative;
+    transition: margin-right var(--transition-normal);
+}
+#center.panel-open { margin-right: var(--panel-w); }
+#center.panel-closed { margin-right: var(--panel-collapsed-w); }
+#canvas-wrapper {
+    min-width: 1100px;
+    min-height: 100%;
+    position: relative;
+    background-image: var(--dot-grid);
+    background-size: 20px 20px;
+    transform-origin: top left;
+    padding: 24px 32px 60px;
+}
+/* SVG overlay for edges */
+#edge-svg {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none; z-index: 1;
+}
+#edge-svg path, #edge-svg line { pointer-events: visibleStroke; }
+
+/* ===== TIER LAYOUT ===== */
+.tier {
+    position: relative;
+    margin-bottom: 20px;
+    z-index: 2;
+}
+.tier-label {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.08em; padding: 4px 10px; border-radius: 4px;
+    display: inline-block; margin-bottom: 10px;
+    background: rgba(30,41,59,0.7);
+}
+.tier-row {
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-start;
+}
+
+/* ===== NODE CARD ===== */
+.node-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-left: 3px solid var(--accent-blue);
+    border-radius: 6px;
+    padding: 10px 12px;
+    cursor: pointer;
+    position: relative;
+    transition: all var(--transition-normal);
+    flex: 0 1 auto;
+    min-width: 180px;
+    max-width: 340px;
+}
+.node-card:hover { background: var(--card-hover); border-color: #334155; }
+.node-card.expanded {
+    max-width: 420px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+    z-index: 10;
+}
+.node-card.focused {
+    border-color: var(--accent-blue) !important;
+    box-shadow: var(--glow-blue);
+}
+.node-card.dimmed { opacity: var(--focus-dim); pointer-events: none; }
+.node-card.search-match { box-shadow: var(--glow-search); border-color: var(--accent-cyan) !important; }
+.node-card.smell-highlight { border-color: var(--accent-orange) !important; box-shadow: 0 0 12px rgba(245,158,11,0.4); }
+
+/* Card header */
+.card-header { display: flex; align-items: center; gap: 6px; }
+.card-icon {
+    width: 22px; height: 22px; border-radius: 4px; display: flex;
+    align-items: center; justify-content: center; font-size: 11px;
+    font-weight: 700; font-family: var(--font-code); flex-shrink: 0;
+    color: #fff;
+}
+.card-label { font-size: 12px; font-weight: 600; color: var(--text-primary); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card-badge {
+    font-size: 9px; padding: 1px 5px; border-radius: 3px;
+    background: rgba(59,130,246,0.15); color: var(--accent-blue);
+    font-weight: 600; white-space: nowrap;
+}
+/* Coupling badge */
+.coupling-badge {
+    position: absolute; top: 6px; right: 8px; font-size: 9px;
+    padding: 1px 5px; border-radius: 8px; font-weight: 700;
+    font-family: var(--font-code);
+}
+.coupling-green { background: rgba(34,197,94,0.15); color: var(--coupling-green); }
+.coupling-yellow { background: rgba(245,158,11,0.15); color: var(--coupling-yellow); }
+.coupling-red { background: rgba(239,68,68,0.15); color: var(--coupling-red); }
+/* Metric badges row */
+.metric-badges {
+    display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap;
+}
+.metric-badge {
+    font-size: 8px; padding: 1px 4px; border-radius: 3px;
+    font-weight: 600; font-family: var(--font-code); white-space: nowrap;
+}
+.metric-badge.cc-low { background: rgba(34,197,94,0.12); color: #4ade80; }
+.metric-badge.cc-med { background: rgba(245,158,11,0.12); color: #fbbf24; }
+.metric-badge.cc-high { background: rgba(239,68,68,0.12); color: #f87171; }
+.metric-badge.inst-stable { background: rgba(34,197,94,0.12); color: #4ade80; }
+.metric-badge.inst-mid { background: rgba(245,158,11,0.12); color: #fbbf24; }
+.metric-badge.inst-unstable { background: rgba(239,68,68,0.12); color: #f87171; }
+.metric-badge.lcom { background: rgba(139,92,246,0.12); color: #a78bfa; }
+.metric-badge.ca-badge { background: rgba(6,182,212,0.12); color: #22d3ee; }
+.metric-badge.ce-badge { background: rgba(59,130,246,0.12); color: #60a5fa; }
+/* Expand indicator */
+.expand-arrow {
+    position: absolute; bottom: 4px; right: 8px; font-size: 9px;
+    color: var(--text-muted); transition: transform var(--transition-fast);
+}
+.node-card.expanded .expand-arrow { transform: rotate(180deg); }
+/* Copy prompt icon */
+.copy-prompt-btn {
+    position: absolute; top: 6px; right: 28px; width: 20px; height: 20px;
+    display: none; align-items: center; justify-content: center;
+    background: var(--card-bg); border: 1px solid var(--card-border);
+    border-radius: 3px; cursor: pointer; color: var(--text-muted);
+    font-size: 11px; z-index: 5; transition: all var(--transition-fast);
+}
+.node-card:hover .copy-prompt-btn { display: flex; }
+.copy-prompt-btn:hover { color: var(--accent-cyan); border-color: var(--accent-cyan); }
+.code-view-btn {
+    position: absolute; top: 6px; right: 52px; width: 20px; height: 20px;
+    display: none; align-items: center; justify-content: center;
+    background: var(--card-bg); border: 1px solid var(--card-border);
+    border-radius: 3px; cursor: pointer; color: var(--text-muted);
+    font-size: 9px; font-family: var(--font-code); font-weight: 700;
+    z-index: 5; transition: all var(--transition-fast);
+}
+.node-card:hover .code-view-btn { display: flex; }
+.code-view-btn:hover { color: var(--accent-purple); border-color: var(--accent-purple); }
+/* Card meta */
+.card-path { font-size: 10px; color: var(--text-muted); font-family: var(--font-code); margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card-desc { font-size: 11px; color: var(--text-secondary); margin-top: 4px; line-height: 1.4; }
+.card-extends { font-size: 10px; color: var(--accent-purple); margin-top: 3px; font-family: var(--font-code); }
+/* Expanded details */
+.card-details { margin-top: 10px; display: none; }
+.node-card.expanded .card-details { display: block; }
+.detail-section { margin-bottom: 8px; }
+.detail-section-title { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 4px; }
+.detail-item { font-size: 11px; font-family: var(--font-code); padding: 2px 0; color: var(--text-secondary); line-height: 1.5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.detail-item:hover { overflow: visible; white-space: normal; word-break: break-all; }
+/* method/fn name tokens */
+.di-name   { color: var(--accent-purple); font-weight: 600; }    /* method name */
+.di-fname  { color: var(--accent-cyan);   font-weight: 600; }    /* function name */
+.di-paren  { color: #475569; }                                    /* ( ) brackets */
+.di-param  { color: #94a3b8; }                                    /* param name */
+.di-colon  { color: #475569; }                                    /* : separator */
+.di-type   { color: #fbbf24; }                                    /* type annotation */
+.di-ret    { color: #4ade80; font-style: italic; }                /* -> ReturnType */
+.di-arr    { color: #475569; }                                    /* -> arrow */
+.di-sep    { color: #334155; }                                    /* , separator */
+/* field tokens */
+.di-field  { color: #a78bfa; }                                    /* field name */
+.di-private{ color: #64748b; }                                    /* _private field */
+.di-dunder { color: #475569; }                                    /* __dunder__ */
+/* visibility icon */
+.di-vis    { font-size: 9px; margin-right: 3px; opacity: 0.7; user-select: none; }
+/* Dep/used-by tags */
+.dep-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.dep-tag {
+    font-size: 10px; padding: 1px 6px; border-radius: 3px;
+    background: rgba(59,130,246,0.1); color: var(--accent-blue);
+    cursor: pointer; transition: all var(--transition-fast);
+}
+.dep-tag:hover { background: rgba(59,130,246,0.25); }
+.dep-tag.used-by { background: rgba(34,197,94,0.1); color: var(--accent-green); }
+.dep-tag.used-by:hover { background: rgba(34,197,94,0.25); }
+
+/* Linked task on card */
+.card-annotation {
+    margin-top: 6px; padding: 4px 6px; background: rgba(59,130,246,0.06);
+    border: 1px solid rgba(59,130,246,0.15); border-radius: 4px;
+    font-size: 10px; color: var(--text-muted); line-height: 1.4;
+}
+
+/* ===== RIGHT PANEL ===== */
+#right-panel {
+    position: fixed; right: 0; top: var(--header-h); bottom: 0;
+    background: var(--header-bg); border-left: 1px solid var(--card-border);
+    z-index: 60; overflow-y: auto; transition: width var(--transition-normal);
+    display: flex; flex-direction: column;
+}
+#right-panel.open { width: var(--panel-w); }
+#right-panel.collapsed { width: var(--panel-collapsed-w); overflow: hidden; }
+#panel-toggle {
+    position: absolute; top: 8px; left: 6px; width: 20px; height: 20px;
+    background: var(--card-bg); border: 1px solid var(--card-border);
+    border-radius: 3px; cursor: pointer; color: var(--text-muted);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; z-index: 5; transition: all var(--transition-fast);
+}
+#panel-toggle:hover { color: var(--text-primary); border-color: var(--text-secondary); }
+#panel-content { padding: 36px 10px 16px; display: flex; flex-direction: column; gap: 12px; }
+#right-panel.collapsed #panel-content { display: none; }
+/* Right panel sections */
+.rpanel-section {}
+.rpanel-header {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--text-muted); cursor: pointer;
+    padding: 4px 0; display: flex; align-items: center; gap: 6px;
+    user-select: none;
+}
+.rpanel-header .rpanel-arrow { font-size: 9px; transition: transform var(--transition-fast); }
+.rpanel-header.collapsed .rpanel-arrow { transform: rotate(-90deg); }
+.rpanel-items { padding-top: 4px; }
+.rpanel-header.collapsed + .rpanel-items { display: none; }
+.rpanel-item {
+    background: var(--card-bg); border: 1px solid var(--card-border);
+    border-left: 2px solid var(--text-muted); border-radius: 4px;
+    padding: 6px 8px; margin-bottom: 4px; cursor: pointer;
+    transition: all var(--transition-fast);
+}
+.rpanel-item:hover { background: var(--card-hover); }
+.rpanel-item.dimmed { opacity: var(--focus-dim); pointer-events: none; }
+.rpanel-item .rpanel-item-name { font-size: 11px; font-weight: 600; color: var(--text-primary); }
+.rpanel-item .rpanel-item-path { font-size: 9px; color: var(--text-muted); font-family: var(--font-code); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ===== FOCUS PANEL ===== */
+#focus-panel {
+    position: fixed; bottom: 0; left: var(--sidebar-w); right: 0;
+    background: var(--header-bg); border-top: 1px solid var(--card-border);
+    padding: 8px 16px; display: none; z-index: 80;
+    align-items: center; gap: 16px; font-size: 12px;
+}
+#focus-panel.visible { display: flex; }
+#focus-panel .focus-name { font-weight: 600; color: var(--accent-blue); }
+#focus-panel .focus-deps, #focus-panel .focus-used-by { display: flex; align-items: center; gap: 6px; }
+#focus-panel .focus-label { color: var(--text-muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; }
+
+/* ===== SMELLS PANEL ===== */
+#smells-panel {
+    position: fixed; bottom: 0; right: 0; width: 340px; max-height: 50vh;
+    background: var(--header-bg); border: 1px solid var(--card-border);
+    border-radius: 8px 0 0 0; z-index: 90; overflow-y: auto;
+    display: none; padding: 12px;
+    box-shadow: -4px -4px 20px rgba(0,0,0,0.3);
+}
+#smells-panel.visible { display: block; }
+#smells-panel h3 { font-size: 12px; font-weight: 700; color: var(--accent-orange); margin-bottom: 10px; }
+.smell-card {
+    background: var(--card-bg); border: 1px solid var(--card-border);
+    border-radius: 6px; padding: 10px; margin-bottom: 8px;
+    cursor: pointer; transition: all var(--transition-fast);
+}
+.smell-card:hover { border-color: var(--accent-orange); }
+.smell-card .smell-title { font-size: 12px; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 6px; }
+.smell-severity {
+    font-size: 9px; padding: 1px 5px; border-radius: 3px; font-weight: 700;
+}
+.smell-severity.warning { background: rgba(245,158,11,0.15); color: var(--accent-orange); }
+.smell-severity.info { background: rgba(59,130,246,0.15); color: var(--accent-blue); }
+.smell-card .smell-desc { font-size: 11px; color: var(--text-secondary); margin-top: 6px; line-height: 1.4; }
+.smell-card .smell-fix { font-size: 11px; color: var(--accent-green); margin-top: 4px; }
+.smell-card .smell-nodes { font-size: 10px; color: var(--text-muted); margin-top: 4px; font-family: var(--font-code); }
+
+/* ===== CONTEXT MENU ===== */
+#context-menu {
+    position: fixed; z-index: 200; background: var(--card-bg);
+    border: 1px solid var(--card-border); border-radius: 6px;
+    padding: 4px; min-width: 200px; display: none;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+.ctx-item {
+    padding: 6px 12px; font-size: 12px; color: var(--text-secondary);
+    cursor: pointer; border-radius: 4px; transition: all var(--transition-fast);
+    display: flex; align-items: center; gap: 8px;
+}
+.ctx-item:hover { background: #1E293B; color: var(--text-primary); }
+.ctx-item svg { flex-shrink: 0; width: 14px; height: 14px; }
+
+/* ===== TOAST ===== */
+#toast {
+    position: fixed; bottom: 20px; right: 20px; z-index: 300;
+    background: var(--accent-cyan); color: #000; padding: 8px 16px;
+    border-radius: 6px; font-size: 12px; font-weight: 600;
+    transform: translateY(80px); opacity: 0;
+    transition: all 0.3s ease;
+    pointer-events: none;
+}
+#toast.show { transform: translateY(0); opacity: 1; }
+
+/* ===== EDGE MARKER DEFS ===== */
+/* (handled in SVG) */
+
+/* ===== AI DESCRIPTIONS MODAL ===== */
+#ai-desc-modal-backdrop {
+    display: none; position: fixed; inset: 0; z-index: 1000;
+    background: rgba(0,0,0,0.7); backdrop-filter: blur(2px);
+    align-items: center; justify-content: center;
+}
+#ai-desc-modal-backdrop.open { display: flex; }
+#ai-desc-modal {
+    background: var(--card-bg); border: 1px solid var(--card-border);
+    border-radius: 10px; padding: 22px 24px; width: 680px; max-width: 96vw;
+    max-height: 88vh; display: flex; flex-direction: column; gap: 14px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+#ai-desc-modal h2 { font-size: 14px; font-weight: 700; color: var(--text-primary); }
+.modal-subtitle { font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
+.ai-desc-step { display: flex; flex-direction: column; gap: 8px; }
+.ai-desc-step-label {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.07em; color: var(--accent-cyan);
+}
+.ai-desc-prompt-box {
+    background: var(--bg); border: 1px solid var(--card-border); border-radius: 6px;
+    padding: 10px 12px; font-size: 11px; font-family: var(--font-code);
+    color: var(--text-secondary); white-space: pre-wrap; word-break: break-word;
+    max-height: 200px; overflow-y: auto; user-select: text;
+}
+.ai-desc-textarea {
+    background: var(--bg); border: 1px solid var(--card-border); border-radius: 6px;
+    padding: 10px 12px; font-size: 11px; font-family: var(--font-code);
+    color: var(--text-primary); resize: vertical; min-height: 100px;
+    outline: none; width: 100%; transition: border-color var(--transition-fast);
+}
+.ai-desc-textarea:focus { border-color: var(--accent-blue); }
+.ai-desc-textarea::placeholder { color: var(--text-muted); }
+.ai-desc-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.ai-desc-btn {
+    padding: 6px 14px; border-radius: 5px; font-size: 12px; font-weight: 600;
+    cursor: pointer; border: 1px solid var(--card-border);
+    background: var(--card-bg); color: var(--text-primary);
+    transition: all var(--transition-fast);
+}
+.ai-desc-btn:hover { border-color: var(--accent-blue); color: var(--accent-blue); }
+.ai-desc-btn.primary { background: var(--accent-blue); border-color: var(--accent-blue); color: #fff; }
+.ai-desc-btn.primary:hover { background: #2563eb; border-color: #2563eb; }
+.ai-desc-btn.danger { border-color: var(--accent-red); color: var(--accent-red); }
+.ai-desc-btn.danger:hover { background: rgba(239,68,68,0.1); }
+.ai-desc-status { font-size: 11px; color: var(--text-muted); }
+.ai-desc-count { font-size: 11px; color: var(--accent-orange); }
+#ai-desc-btn {
+    padding: 5px 12px; border-radius: 5px; font-size: 12px; font-weight: 600;
+    cursor: pointer; border: 1px solid var(--card-border);
+    background: var(--card-bg); color: var(--text-secondary);
+    transition: all var(--transition-fast); white-space: nowrap;
+}
+#ai-desc-btn:hover { border-color: var(--accent-cyan); color: var(--accent-cyan); }
+</style>
+</head>
+<body>
+<div id="app">
+<!-- ===== HEADER ===== -->
+<div id="header">
+    <h1>Architecture Diagram</h1>
+    <div class="sep"></div>
+    <div id="search-box">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+        <input id="search-input" type="text" placeholder="Search nodes..." autocomplete="off" spellcheck="false"/>
+    </div>
+    <div class="zoom-controls">
+        <button class="zoom-btn" id="zoom-out" title="Zoom out">-</button>
+        <span id="zoom-level">100%</span>
+        <button class="zoom-btn" id="zoom-in" title="Zoom in">+</button>
+        <button class="zoom-btn" id="zoom-fit" title="Reset zoom">Fit</button>
+    </div>
+    <button id="smells-toggle">Refactoring</button>
+    <button id="ai-desc-btn" title="Get AI descriptions for all nodes">AI Descriptions</button>
+    <div class="header-spacer"></div>
+</div>
+<!-- ===== BODY ===== -->
+<div id="body">
+<!-- LEFT SIDEBAR -->
+<div id="sidebar">
+    <div id="sidebar-tabs">
+        <button class="sidebar-tab" data-tab="explorer" title="Explorer (E)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        </button>
+        <button class="sidebar-tab active" data-tab="architecture" title="Architecture">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="3"/><line x1="12" y1="8" x2="12" y2="14"/><circle cx="6" cy="19" r="2.5"/><circle cx="18" cy="19" r="2.5"/><line x1="12" y1="14" x2="6" y2="16.5"/><line x1="12" y1="14" x2="18" y2="16.5"/></svg>
+        </button>
+        <button class="sidebar-tab" data-tab="todos" title="Tasks (T)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            <span class="tab-badge" id="todo-badge" style="display:none"></span>
+        </button>
+        <button class="sidebar-tab" data-tab="code" title="Code">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+        </button>
+    </div>
+    <div class="sidebar-content">
+        <!-- EXPLORER TAB -->
+        <div id="tab-explorer" class="tab-panel" style="display:none">
+            <div class="tab-panel-header">Explorer</div>
+            <div id="file-tree"></div>
+        </div>
+        <!-- ARCHITECTURE TAB -->
+        <div id="tab-architecture" class="tab-panel">
+            <div class="sidebar-section" id="sidebar-groups">
+                <h3>Groups</h3>
+                <div id="group-toggles"></div>
+            </div>
+            <div class="sidebar-section">
+                <h3>Stats</h3>
+                <div id="sidebar-stats"></div>
+            </div>
+            <div class="sidebar-section">
+                <h3>Edge Legend</h3>
+                <div id="edge-legend">
+                    <div class="edge-legend-item"><svg class="edge-legend-line" viewBox="0 0 28 4"><line x1="0" y1="2" x2="28" y2="2" stroke="#3B82F6" stroke-width="1.5"/></svg><span class="edge-legend-label">Dependency</span></div>
+                    <div class="edge-legend-item"><svg class="edge-legend-line" viewBox="0 0 28 4"><line x1="0" y1="2" x2="28" y2="2" stroke="#8B5CF6" stroke-width="1.5" stroke-dasharray="4 3"/></svg><span class="edge-legend-label">Inheritance</span></div>
+                    <div class="edge-legend-item"><svg class="edge-legend-line" viewBox="0 0 28 4"><line x1="0" y1="2" x2="28" y2="2" stroke="#F59E0B" stroke-width="1.5" stroke-dasharray="2 3"/></svg><span class="edge-legend-label">Factory</span></div>
+                    <div class="edge-legend-item"><svg class="edge-legend-line" viewBox="0 0 28 4"><line x1="0" y1="2" x2="28" y2="2" stroke="#64748B" stroke-width="1" stroke-dasharray="1 2"/></svg><span class="edge-legend-label">Data / Uses</span></div>
+                </div>
+            </div>
+            <div class="sidebar-section">
+                <h3>Controls</h3>
+                <div class="controls-help">
+                    <kbd>Click</kbd> card to expand / focus<br>
+                    <kbd>Esc</kbd> or click bg to unfocus<br>
+                    <kbd>Ctrl+Scroll</kbd> zoom<br>
+                    <kbd>Right-click</kbd> context menu<br>
+                    <kbd>E</kbd> explorer <kbd>T</kbd> tasks<br>
+                </div>
+            </div>
+        </div>
+        <!-- TODOS TAB -->
+        <div id="tab-todos" class="tab-panel" style="display:none">
+            <div class="tab-panel-header">Tasks</div>
+            <div id="todo-list"></div>
+            <div class="todo-input-area">
+                <input id="todo-input" type="text" placeholder="Add a task... (Enter to save)" autocomplete="off">
+                <select id="todo-link-node"><option value="">Link to node (optional)</option></select>
+            </div>
+            <button class="export-btn" id="export-all-btn">Export tasks</button>
+        </div>
+        <!-- CODE TAB (sidebar nav) -->
+        <div id="tab-code" class="tab-panel" style="display:none">
+            <div class="tab-panel-header">Code Map</div>
+            <div id="code-map-empty">Click a node to view its code structure</div>
+            <div id="code-map-nav" style="display:none"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Code map backdrop (click to close) -->
+<div id="code-map-backdrop"></div>
+<!-- Code map floating card -->
+<div id="code-map-panel">
+    <div id="code-map-panel-header">
+        <span class="node-label"></span>
+        <span class="file-path"></span>
+        <span class="file-meta"></span>
+        <button class="close-btn" id="code-map-close-btn">&times;</button>
+    </div>
+    <div id="code-map-panel-body">
+        <div id="code-map-nav-pane"></div>
+        <div id="code-map-panel-content"></div>
+    </div>
+</div>
+<!-- CENTER CANVAS -->
+<div id="center" class="panel-open">
+    <div id="canvas-wrapper">
+        <svg id="edge-svg">
+            <defs>
+                <marker id="arrow-dep" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto" fill="#3B82F6">
+                    <polygon points="0 0, 8 3, 0 6"/>
+                </marker>
+                <marker id="arrow-inh" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto" fill="none" stroke="#8B5CF6" stroke-width="1">
+                    <polygon points="0 0, 8 3, 0 6"/>
+                </marker>
+                <marker id="arrow-factory" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto" fill="#F59E0B">
+                    <path d="M0,0 L4,3 L0,6 L8,3 Z"/>
+                </marker>
+                <marker id="arrow-data" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto" fill="#64748B">
+                    <polygon points="0 0, 6 2, 0 4"/>
+                </marker>
+            </defs>
+        </svg>
+        <div id="tiers-container"></div>
+    </div>
+</div>
+
+<!-- RIGHT PANEL -->
+<div id="right-panel" class="open">
+    <div id="panel-toggle" title="Toggle panel">&lt;</div>
+    <div id="panel-content"></div>
+</div>
+
+<!-- FOCUS PANEL -->
+<div id="focus-panel">
+    <span class="focus-name" id="focus-name"></span>
+    <div class="focus-deps">
+        <span class="focus-label">Depends on:</span>
+        <div class="dep-tags" id="focus-deps-tags"></div>
+    </div>
+    <div class="focus-used-by">
+        <span class="focus-label">Used by:</span>
+        <div class="dep-tags" id="focus-used-tags"></div>
+    </div>
+</div>
+
+
+<!-- AI DESCRIPTIONS MODAL -->
+<div id="ai-desc-modal-backdrop">
+<div id="ai-desc-modal" role="dialog" aria-modal="true" aria-labelledby="ai-desc-title">
+    <h2 id="ai-desc-title">&#129302; Get AI Descriptions</h2>
+    <div class="modal-subtitle">
+        No API keys needed. Copy the prompt below, paste it into any AI assistant
+        (Claude, ChatGPT, Gemini&hellip;), then paste the JSON response back to update
+        all node descriptions in this diagram.
+    </div>
+    <div class="ai-desc-step">
+        <div class="ai-desc-step-label">Step 1 &mdash; Copy prompt</div>
+        <div class="ai-desc-count" id="ai-desc-count"></div>
+        <div class="ai-desc-prompt-box" id="ai-desc-prompt-box"></div>
+        <div class="ai-desc-actions">
+            <button class="ai-desc-btn primary" id="ai-desc-copy-btn">Copy to clipboard</button>
+            <span class="ai-desc-status" id="ai-desc-copy-status"></span>
+        </div>
+    </div>
+    <div class="ai-desc-step">
+        <div class="ai-desc-step-label">Step 2 &mdash; Paste AI response</div>
+        <textarea class="ai-desc-textarea" id="ai-desc-paste"
+            placeholder="Paste the JSON here, e.g. {node_id: Short description.}"></textarea>
+        <div class="ai-desc-actions">
+            <button class="ai-desc-btn primary" id="ai-desc-apply-btn">Apply descriptions</button>
+            <button class="ai-desc-btn danger" id="ai-desc-close-btn">Close</button>
+            <span class="ai-desc-status" id="ai-desc-apply-status"></span>
+        </div>
+    </div>
+</div>
+</div>
+
+<!-- SMELLS PANEL -->
+<div id="smells-panel">
+    <h3>Architectural Smells</h3>
+    <div id="smells-list"></div>
+</div>
+
+<!-- CONTEXT MENU -->
+<div id="context-menu"></div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+</div><!-- end body -->
+</div><!-- end app -->
+
+<script>
+(function(){
+"use strict";
+
+/* ===== DATA PLACEHOLDERS ===== */
+const DATA = __ARCHITECTURE_DATA__;
+const SMELLS = __COMPUTED_SMELLS__;
+const NODE_METRICS = __NODE_METRICS__;
+const FILE_TREE = __FILE_TREE__;
+const SOURCE_FILES = __SOURCE_FILES__;
+const CODE_MAP = __CODE_MAP__;
+
+/* ===== STATE ===== */
+const state = {
+    expandedNodes: new Set(),
+    visibleGroups: new Set(),
+    searchQuery: '',
+    focusedNode: null,
+    zoom: 1,
+    rightPanelOpen: true,
+    showSmells: false,
+    contextMenuNode: null,
+    activeTab: 'architecture',
+    todos: [],
+    treeExpanded: new Set(),
+    scrollToMethod: null
+};
+
+/* ===== INDEX MAPS ===== */
+const nodeMap = new Map();
+const edgesBySource = new Map();
+const edgesByTarget = new Map();
+const groupSet = new Set();
+const nodeTierMap = new Map();
+const couplingScores = new Map();
+
+/* ===== INIT INDICES ===== */
+function initIndices() {
+    // --- Normalize nodes: bridge ARCHITECTURE_DATA field names to what JS expects ---
+    // 1. Assign tier index to each node from DATA.tiers[].nodeIds
+    const RIGHT_PANEL_GROUPS = new Set(
+            (DATA.groups || []).filter(g => g.panel).map(g => g.id)
+        );
+    (DATA.tiers || []).forEach((t, idx) => {
+        (t.nodeIds || []).forEach(nid => {
+            const node = (DATA.nodes || []).find(n => n.id === nid);
+            if (node) node.tier = idx;
+        });
+    });
+    // 2. Normalize node fields
+    (DATA.nodes || []).forEach(n => {
+        // file_path -> file
+        if (n.file_path && !n.file) n.file = n.file_path;
+        // type -> badge
+        if (n.type && !n.badge) n.badge = n.type;
+        // inherits -> extends
+        if (n.inherits && !n.extends) n.extends = n.inherits;
+        // icon: derive from type if not set
+        if (!n.icon) {
+            const t = (n.type || '').toLowerCase();
+            if (t === 'script') n.icon = 'S';
+            else if (t === 'class') n.icon = 'C';
+            else if (t === 'dataclass') n.icon = 'D';
+            else if (t === 'abc') n.icon = 'A';
+            else if (t === 'function') n.icon = 'f';
+            else if (t === 'module') n.icon = 'M';
+            else if (t === 'file') n.icon = 'F';
+            else n.icon = 'M';
+        }
+        // methods/functions: keep as objects {name, sig} if they are objects;
+        // if already strings, convert to {name, sig:''}
+        if (n.methods && n.methods.length) {
+            n.methods = n.methods.map(m => typeof m === 'object' ? m : { name: m.split('(')[0], sig: m.includes('(') ? m.slice(m.indexOf('(')) : '' });
+        }
+        if (n.functions && n.functions.length) {
+            n.functions = n.functions.map(f => typeof f === 'object' ? f : { name: f.split('(')[0], sig: f.includes('(') ? f.slice(f.indexOf('(')) : '' });
+        }
+        // inputs/outputs: arrays -> comma-joined string
+        if (Array.isArray(n.inputs)) n.inputs = n.inputs.join(', ');
+        if (Array.isArray(n.outputs)) n.outputs = n.outputs.join(', ');
+        // panel: assign right-panel key for utilities/visualization/config/data groups
+        if (!n.panel && RIGHT_PANEL_GROUPS.has(n.group)) {
+            if (n.group === 'utilities' || n.group === 'visualization') n.panel = 'utilities';
+            else n.panel = n.group; // 'config' or 'data'
+        }
+    });
+    // 3. Normalize edge type -> style
+    (DATA.edges || []).forEach(e => {
+        if (e.type && !e.style) {
+            if (e.type === 'uses') e.style = 'data';
+            else e.style = e.type;
+        }
+    });
+    // Build node map
+    (DATA.nodes || []).forEach(n => {
+        nodeMap.set(n.id, n);
+        if (n.group) groupSet.add(n.group);
+        if (n.tier !== undefined) nodeTierMap.set(n.id, n.tier);
+    });
+    // Build edge indices
+    (DATA.edges || []).forEach(e => {
+        if (!edgesBySource.has(e.from)) edgesBySource.set(e.from, []);
+        edgesBySource.get(e.from).push(e);
+        if (!edgesByTarget.has(e.to)) edgesByTarget.set(e.to, []);
+        edgesByTarget.get(e.to).push(e);
+    });
+    // Compute coupling scores (cross-group edge count)
+    nodeMap.forEach((n, id) => {
+        let cross = 0;
+        const myGroup = n.group;
+        (edgesBySource.get(id) || []).forEach(e => {
+            const tn = nodeMap.get(e.to);
+            if (tn && tn.group !== myGroup) cross++;
+        });
+        (edgesByTarget.get(id) || []).forEach(e => {
+            const sn = nodeMap.get(e.from);
+            if (sn && sn.group !== myGroup) cross++;
+        });
+        couplingScores.set(id, cross);
+    });
+    // Init visible groups
+    groupSet.forEach(g => state.visibleGroups.add(g));
+    // Load todos
+    loadTodos();
+    // Migrate old annotations to todos (one-time)
+    try {
+        const oldAnns = localStorage.getItem('arch_diagram_annotations');
+        if (oldAnns) {
+            JSON.parse(oldAnns).forEach(a => {
+                state.todos.push({ id: a.timestamp || Date.now(), text: a.text, done: false, linkedNode: a.nodeId || null, ts: a.timestamp || Date.now() });
+            });
+            saveTodos();
+            localStorage.removeItem('arch_diagram_annotations');
+        }
+    } catch(e) {}
+}
+
+/* ===== HELPERS ===== */
+function getDeps(nodeId) {
+    return (edgesBySource.get(nodeId) || []).map(e => e.to);
+}
+function getUsedBy(nodeId) {
+    return (edgesByTarget.get(nodeId) || []).map(e => e.from);
+}
+function getConnected(nodeId) {
+    const set = new Set();
+    getDeps(nodeId).forEach(id => set.add(id));
+    getUsedBy(nodeId).forEach(id => set.add(id));
+    return set;
+}
+function couplingClass(score) {
+    if (score <= 2) return 'coupling-green';
+    if (score <= 4) return 'coupling-yellow';
+    return 'coupling-red';
+}
+const TIER_COLORS = { 0: 'var(--tier0)', 1: 'var(--tier1)', 2: 'var(--tier2)', 3: 'var(--tier3)', 4: 'var(--tier4)', 5: 'var(--tier5)', 6: 'var(--tier6)' };
+const ICON_COLORS = { S: '#3B82F6', C: '#8B5CF6', D: '#22C55E', A: '#EC4899', f: '#F59E0B', M: '#14B8A6', F: '#EF4444' };
+function escHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+/* ===== TOAST ===== */
+function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+/* ===== CLIPBOARD ===== */
+function copyToClipboard(text) {
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(text).then(() => {}).catch(() => fallbackCopy(text));
+    } else {
+        fallbackCopy(text);
+    }
+}
+function fallbackCopy(text) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.cssText = 'position:fixed;left:-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+}
+
+/* ===== SEARCH (multi-token AND with typo tolerance) ===== */
+function tokenize(s) {
+    return s.toLowerCase().split(/[\s_\-\.\/]+/).filter(t => t.length > 0);
+}
+function fuzzyMatch(token, target) {
+    if (target.includes(token)) return true;
+    if (token.length < 4) return false;
+    // Allow 1 missing char
+    for (let i = 0; i < token.length; i++) {
+        const reduced = token.slice(0, i) + token.slice(i + 1);
+        if (target.includes(reduced)) return true;
+    }
+    return false;
+}
+function nodeMatchesSearch(node, tokens) {
+    if (!tokens.length) return true;
+    const haystack = [node.id, node.label || '', node.file || '', node.description || '', ...(node.methods || []), ...(node.functions || [])].join(' ').toLowerCase();
+    return tokens.every(t => fuzzyMatch(t, haystack));
+}
+function getBestMatch(tokens) {
+    if (!tokens.length) return null;
+    let best = null, bestScore = -1;
+    nodeMap.forEach((n, id) => {
+        if (!nodeMatchesSearch(n, tokens)) return;
+        const label = (n.label || n.id).toLowerCase();
+        let score = 0;
+        tokens.forEach(t => { if (label.includes(t)) score += 2; });
+        if (score > bestScore) { bestScore = score; best = id; }
+    });
+    return best;
+}
+
+/* ===== BUILD PROMPT ===== */
+function buildPrompt(nodeId, type) {
+    const n = nodeMap.get(nodeId);
+    if (!n) return '';
+    const deps = getDeps(nodeId).map(id => (nodeMap.get(id) || {}).label || id);
+    const usedBy = getUsedBy(nodeId).map(id => (nodeMap.get(id) || {}).label || id);
+    const methods = (n.methods || []).join(', ');
+    const smellsForNode = SMELLS.filter(s => s.nodes.includes(n.label || n.id) || s.nodes.includes(n.id));
+    const smellNote = smellsForNode.length ? '\n\nNote: This module has an architectural smell: ' + smellsForNode[0].description + '. Consider: ' + smellsForNode[0].fix : '';
+    const label = n.label || n.id;
+    const file = n.file || '';
+    switch (type) {
+        case 'analyze':
+            return `Read ${file} and analyze the ${label} ${n.badge || 'class'}.\n\nContext:\n- Dependencies: ${deps.join(', ') || 'none'}\n- Used by: ${usedBy.join(', ') || 'none'}\n- Methods: ${methods || 'none'}${smellNote}`;
+        case 'explain':
+            return `Explain the purpose and design of ${label} in ${file}. Include its role in the architecture, key methods, and how it interacts with ${deps.join(', ') || 'other modules'}.`;
+        case 'bugs':
+            return `Review ${file} focusing on ${label}. Look for potential bugs, error handling gaps, edge cases, and race conditions.`;
+        case 'refactor':
+            return `Refactor ${label} in ${file}. Current dependencies: ${deps.join(', ') || 'none'}. Suggested improvements: ${smellsForNode.length ? smellsForNode[0].fix : 'N/A'}.`;
+        case 'test':
+            return `Analyze test coverage for ${file}. What test cases exist? What's missing?`;
+        default:
+            return `Read ${file}`;
+    }
+}
+
+/* ===== RENDER: SIDEBAR GROUP TOGGLES ===== */
+function renderGroupToggles() {
+    const container = document.getElementById('group-toggles');
+    container.innerHTML = '';
+    const groups = Array.from(groupSet).sort();
+    groups.forEach(g => {
+        const lbl = document.createElement('label');
+        lbl.className = 'group-toggle';
+        const checked = state.visibleGroups.has(g) ? 'checked' : '';
+        lbl.innerHTML = `<input type="checkbox" data-group="${escHtml(g)}" ${checked}><span class="check-box"></span><span class="label">${escHtml(g)}</span>`;
+        lbl.querySelector('input').addEventListener('change', e => {
+            if (e.target.checked) state.visibleGroups.add(g);
+            else state.visibleGroups.delete(g);
+            renderAll();
+        });
+        container.appendChild(lbl);
+    });
+}
+
+/* ===== RENDER: SIDEBAR STATS ===== */
+function renderStats() {
+    const container = document.getElementById('sidebar-stats');
+    const totalNodes = DATA.nodes ? DATA.nodes.length : 0;
+    const totalEdges = DATA.edges ? DATA.edges.length : 0;
+    const mainNodes = (DATA.nodes || []).filter(n => n.tier !== undefined && n.tier <= 5).length;
+    container.innerHTML = `
+        <div class="stat-row"><span class="stat-label">Total nodes</span><span class="stat-value">${totalNodes}</span></div>
+        <div class="stat-row"><span class="stat-label">Main flow</span><span class="stat-value">${mainNodes}</span></div>
+        <div class="stat-row"><span class="stat-label">Edges</span><span class="stat-value">${totalEdges}</span></div>
+        <div class="stat-row"><span class="stat-label">Groups</span><span class="stat-value">${groupSet.size}</span></div>
+        <div class="stat-row"><span class="stat-label">Smells</span><span class="stat-value">${SMELLS.length}</span></div>
+    `;
+}
+
+/* ===== CODE MAP OPEN/CLOSE ===== */
+function openCodeMap() {
+    renderCodeMap();
+    document.getElementById('code-map-panel').classList.add('visible');
+    document.getElementById('code-map-backdrop').classList.add('visible');
+}
+function closeCodeMap() {
+    document.getElementById('code-map-panel').classList.remove('visible');
+    document.getElementById('code-map-backdrop').classList.remove('visible');
+    // deactivate code tab button if it was active
+    document.querySelectorAll('.sidebar-tab').forEach(t => { if (t.dataset.tab === 'code') t.classList.remove('active'); });
+    document.querySelectorAll('.tab-panel').forEach(p => { if (p.id === 'tab-code') p.style.display = 'none'; });
+    state.activeTab = 'architecture';
+    document.querySelector('.sidebar-tab[data-tab="architecture"]').classList.add('active');
+    document.getElementById('tab-architecture').style.display = '';
+}
+
+/* ===== TAB SWITCHING ===== */
+function switchTab(tabId) {
+    state.activeTab = tabId;
+    document.querySelectorAll('.sidebar-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tabId));
+    document.querySelectorAll('.tab-panel').forEach(p => { p.style.display = p.id === 'tab-' + tabId ? '' : 'none'; });
+    if (tabId === 'code') { openCodeMap(); return; }
+    closeCodeMap();
+    if (tabId === 'explorer') {
+        renderFileTree();
+        requestAnimationFrame(() => {
+            const focused = document.querySelector('.tree-file-focused');
+            if (focused) focused.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
+    }
+    if (tabId === 'todos') renderTodos();
+}
+
+/* ===== FILE TREE ===== */
+function renderFileTree() {
+    const c = document.getElementById('file-tree');
+    if (!c) return;
+    c.innerHTML = '';
+    if (FILE_TREE && FILE_TREE.children) {
+        FILE_TREE.children.forEach(child => renderTreeNode(child, c, ''));
+    }
+}
+function renderTreeNode(node, parent, prefix) {
+    if (node.type === 'dir') {
+        const wrap = document.createElement('div');
+        const key = prefix + node.name;
+        const expanded = state.treeExpanded.has(key);
+        const hdr = document.createElement('div');
+        hdr.className = 'tree-dir';
+        hdr.innerHTML = '<span class="tree-dir-arrow' + (expanded ? '' : ' collapsed') + '">\u25BC</span> <span>\uD83D\uDCC1</span> ' + escHtml(node.name);
+        hdr.addEventListener('click', () => {
+            if (state.treeExpanded.has(key)) state.treeExpanded.delete(key);
+            else state.treeExpanded.add(key);
+            renderFileTree();
+        });
+        wrap.appendChild(hdr);
+        const ch = document.createElement('div');
+        ch.className = 'tree-children' + (expanded ? '' : ' collapsed');
+        const dirs = (node.children || []).filter(c => c.type === 'dir');
+        const files = (node.children || []).filter(c => c.type === 'file');
+        [...dirs, ...files].forEach(child => renderTreeNode(child, ch, key + '/'));
+        wrap.appendChild(ch);
+        parent.appendChild(wrap);
+    } else {
+        const f = document.createElement('div');
+        f.className = 'tree-file' + (node.referenced ? ' referenced' : '');
+        f.dataset.path = node.path || '';
+        if (state.focusedNode) {
+            const fn = nodeMap.get(state.focusedNode);
+            if (fn && fn.file === node.path) {
+                f.classList.add('tree-file-focused');
+            } else {
+                const connected = getConnected(state.focusedNode);
+                let isConn = false;
+                connected.forEach(cid => { const cn = nodeMap.get(cid); if (cn && cn.file === node.path) isConn = true; });
+                if (isConn) f.classList.add('tree-file-connected');
+            }
+        }
+        f.innerHTML = '<span style="color:var(--text-muted)">\uD83D\uDCC4</span> ' + escHtml(node.name);
+        f.addEventListener('click', () => {
+            if (node.nodeIds && node.nodeIds.length) {
+                focusNode(node.nodeIds[0]);
+            }
+        });
+        parent.appendChild(f);
+    }
+}
+function expandTreeToFile(filePath) {
+    if (!filePath) return;
+    const parts = filePath.split('/');
+    let acc = '';
+    for (let i = 0; i < parts.length - 1; i++) {
+        acc += (acc ? '/' : '') + parts[i];
+        state.treeExpanded.add(acc);
+    }
+}
+
+/* ===== TODO LIST ===== */
+function loadTodos() {
+    try { const s = localStorage.getItem('arch_todos'); if (s) state.todos = JSON.parse(s); } catch(e) {}
+}
+function saveTodos() {
+    try { localStorage.setItem('arch_todos', JSON.stringify(state.todos)); } catch(e) {}
+}
+function addTodo(text, linkedNode) {
+    state.todos.push({ id: Date.now(), text, done: false, linkedNode: linkedNode || null, ts: Date.now() });
+    saveTodos(); renderTodos(); updateTodoBadge();
+}
+function toggleTodo(id) {
+    const t = state.todos.find(x => x.id === id);
+    if (t) { t.done = !t.done; saveTodos(); renderTodos(); updateTodoBadge(); }
+}
+function deleteTodo(id) {
+    state.todos = state.todos.filter(x => x.id !== id);
+    saveTodos(); renderTodos(); updateTodoBadge();
+}
+function updateTodoBadge() {
+    const b = document.getElementById('todo-badge');
+    const n = state.todos.filter(t => !t.done).length;
+    if (n > 0) { b.style.display = ''; b.textContent = n; } else { b.style.display = 'none'; }
+}
+function renderTodos() {
+    const c = document.getElementById('todo-list');
+    if (!c) return;
+    c.innerHTML = '';
+    const sel = document.getElementById('todo-link-node');
+    if (sel) {
+        const curVal = sel.value;
+        sel.innerHTML = '<option value="">Link to node (optional)</option>';
+        nodeMap.forEach((n, id) => { const o = document.createElement('option'); o.value = id; o.textContent = n.label || id; sel.appendChild(o); });
+        sel.value = curVal;
+    }
+    state.todos.forEach(todo => {
+        const d = document.createElement('div');
+        d.className = 'todo-item' + (todo.done ? ' done' : '');
+        d.innerHTML = '<div class="todo-cb-wrap"><input type="checkbox"' + (todo.done ? ' checked' : '') + '><div class="todo-cb-custom"></div></div>' +
+            '<div style="flex:1"><div class="todo-text' + (todo.done ? ' done' : '') + '">' + escHtml(todo.text) + '</div>' +
+            (todo.linkedNode ? '<div class="todo-node-link" data-node="' + todo.linkedNode + '">\u{1F517} ' + escHtml((nodeMap.get(todo.linkedNode)||{}).label||todo.linkedNode) + '</div>' : '') +
+            '</div><button class="todo-del" title="Delete">\u00D7</button>';
+        d.querySelector('input[type="checkbox"]').addEventListener('change', () => toggleTodo(todo.id));
+        d.querySelector('.todo-del').addEventListener('click', () => deleteTodo(todo.id));
+        const lnk = d.querySelector('.todo-node-link');
+        if (lnk) lnk.addEventListener('click', () => focusNode(lnk.dataset.node));
+        c.appendChild(d);
+    });
+    updateTodoBadge();
+}
+function exportAll() {
+    if (!state.todos.length) { showToast('No tasks to export'); return; }
+    let md = '# Architecture Tasks\n\n';
+    state.todos.forEach(t => {
+        const ch = t.done ? 'x' : ' ';
+        const nd = t.linkedNode ? ' (' + ((nodeMap.get(t.linkedNode)||{}).label||t.linkedNode) + ')' : '';
+        md += '- [' + ch + '] ' + t.text + nd + '\n';
+    });
+    copyToClipboard(md);
+    showToast('Tasks exported to clipboard!');
+}
+
+/* ===== CODE MAP ===== */
+function renderCodeMap() {
+    const empty = document.getElementById('code-map-empty');
+    const navSidebar = document.getElementById('code-map-nav');
+    const navPane = document.getElementById('code-map-nav-pane');
+    const panelContent = document.getElementById('code-map-panel-content');
+    const panelHeader = document.getElementById('code-map-panel-header');
+    if (!empty || !panelContent) return;
+
+    if (!state.focusedNode) {
+        if (empty) { empty.style.display = ''; }
+        if (navSidebar) navSidebar.style.display = 'none';
+        return;
+    }
+    const n = nodeMap.get(state.focusedNode);
+    const fp = n ? (n.file || n.file_path) : null;
+    if (!fp) {
+        if (empty) { empty.style.display = ''; empty.textContent = 'No file for this node'; }
+        if (navSidebar) navSidebar.style.display = 'none';
+        return;
+    }
+    // For non-Python files (JSON, CSV, etc.), show raw content
+    const hasPyMap = CODE_MAP && CODE_MAP[fp];
+    const hasSrc = SOURCE_FILES && SOURCE_FILES[fp];
+    if (!hasPyMap && !hasSrc) {
+        if (empty) { empty.style.display = ''; empty.textContent = 'No source available for: ' + fp; }
+        if (navSidebar) navSidebar.style.display = 'none';
+        return;
+    }
+    if (!hasPyMap && hasSrc) {
+        // Raw file view for JSON/CSV/etc.
+        if (empty) empty.style.display = 'none';
+        if (navSidebar) navSidebar.style.display = 'none';
+        if (navPane) { navPane.innerHTML = '<div style="padding:8px;font-size:10px;color:var(--text-muted)">' + fp.split('.').pop().toUpperCase() + ' file</div>'; }
+        if (panelHeader) {
+            const nlEl = panelHeader.querySelector('.node-label');
+            const fpEl = panelHeader.querySelector('.file-path');
+            const fmEl = panelHeader.querySelector('.file-meta');
+            if (nlEl) nlEl.textContent = n.label || n.id;
+            if (fpEl) fpEl.textContent = fp;
+            if (fmEl) fmEl.textContent = SOURCE_FILES[fp].split('\n').length + ' lines';
+        }
+        panelContent.innerHTML = '';
+        const rawPre = document.createElement('pre');
+        rawPre.style.cssText = 'background:#0a0f1e;border:1px solid var(--card-border);border-radius:6px;padding:16px;font-size:11px;line-height:1.6;overflow:auto;max-height:calc(88vh - 120px);color:#abb2bf;font-family:var(--font-code);white-space:pre;tab-size:2';
+        rawPre.textContent = SOURCE_FILES[fp];
+        panelContent.appendChild(rawPre);
+        return;
+    }
+    if (empty) empty.style.display = 'none';
+    if (navSidebar) navSidebar.style.display = '';
+
+    const map = CODE_MAP[fp];
+    // Split on \n and strip \r so Windows CRLF source files work
+    const rawSrc = SOURCE_FILES && SOURCE_FILES[fp] ? SOURCE_FILES[fp] : '';
+    const srcLines = rawSrc.split('\n').map(l => l.replace('\r', ''));
+    const nodeMembers = new Set();
+    (n.methods || []).forEach(m => nodeMembers.add(typeof m === 'string' ? m.split('(')[0] : m.name));
+    (n.functions || []).forEach(f => nodeMembers.add(typeof f === 'string' ? f.split('(')[0] : f.name));
+
+    // Build set of all fn names in this file for call-flow detection
+    const fileFnNames = new Set();
+    (map.classes || []).forEach(cls => (cls.methods || []).forEach(m => fileFnNames.add(m.name)));
+    (map.functions || []).forEach(fn => fileFnNames.add(fn.name));
+
+    // Build label->nodeId lookup for cross-node clickable identifiers in code
+    const labelToNodeId = new Map();
+    nodeMap.forEach((nd, nid) => {
+        if (nid === state.focusedNode) return;
+        const lbl = nd.label || nid;
+        labelToNodeId.set(lbl, nid);
+        const bare = lbl.split('/').pop().replace(/\.py$/, '');
+        if (bare !== lbl) labelToNodeId.set(bare, nid);
+    });
+
+    /* --- Panel header --- */
+    if (panelHeader) {
+        const nlEl = panelHeader.querySelector('.node-label');
+        const fpEl = panelHeader.querySelector('.file-path');
+        const fmEl = panelHeader.querySelector('.file-meta');
+        if (nlEl) nlEl.textContent = n.label || n.id;
+        if (fpEl) fpEl.textContent = fp;
+        if (fmEl) fmEl.textContent = (map.total_loc || 0) + ' lines \u00B7 ' +
+            (map.classes || []).length + ' classes \u00B7 ' + (map.functions || []).length + ' fns';
+    }
+
+    /* --- Left nav pane inside modal --- */
+    if (navPane) {
+        navPane.innerHTML = '';
+        function addNavEntry(label, cc, cls, targetName) {
+            const item = document.createElement('div');
+            item.className = 'code-nav-item ' + cls;
+            if (targetName) item.dataset.target = targetName;
+            const ccClass = cc <= 0 ? '' : (cc <= 5 ? 'cc-low' : cc <= 10 ? 'cc-med' : 'cc-high');
+            const badge = cc > 0 ? '<span class="nav-badge ' + ccClass + '">CC' + cc + '</span>' : '';
+            item.innerHTML = escHtml(label) + badge;
+            navPane.appendChild(item);
+        }
+        (map.classes || []).forEach(cls => {
+            addNavEntry('class ' + cls.name, 0, 'is-class', '');
+            (cls.methods || []).forEach(m => addNavEntry(m.name, m.cc, 'is-method', m.name));
+        });
+        (map.functions || []).forEach(fn => addNavEntry(fn.name, fn.cc, 'is-fn', fn.name));
+    }
+
+    /* --- Sidebar nav (the sidebar Code tab) --- */
+    if (navSidebar) {
+        navSidebar.innerHTML = '';
+        const navFileEl = document.createElement('div');
+        navFileEl.className = 'code-nav-file';
+        navFileEl.innerHTML = escHtml(fp.split('/').pop()) + '<span class="loc-info">' + (map.total_loc || 0) + ' lines</span>';
+        navSidebar.appendChild(navFileEl);
+    }
+
+    /* --- Build continuous code view --- */
+    panelContent.innerHTML = '';
+    panelContent.style.cssText = 'display:flex;flex-direction:column;gap:8px;padding:12px;overflow:hidden;min-height:0';
+
+    const wrap = document.createElement('div');
+    wrap.className = 'code-view-wrap';
+    wrap.style.flex = '1';
+    const pre = document.createElement('pre');
+    pre.className = 'code-view-pre';
+    wrap.appendChild(pre);
+    panelContent.appendChild(wrap);
+
+    // Collect all functions in file order
+    const allFns = [];
+    (map.classes || []).forEach(cls => {
+        allFns.push({ type: 'class', cls });
+        (cls.methods || []).forEach(m => allFns.push({ type: 'fn', fn: m, inClass: cls.name }));
+    });
+    (map.functions || []).forEach(fn => allFns.push({ type: 'fn', fn, inClass: null }));
+    allFns.sort((a, b) => {
+        const la = a.type === 'class' ? a.cls.lineno : a.fn.lineno;
+        const lb = b.type === 'class' ? b.cls.lineno : b.fn.lineno;
+        return la - lb;
+    });
+
+    // Pre-compute call relationships between all functions in this file
+    // callsMap[fnName] = { internal: Set<name>, external: Set<name> }
+    // calledByMap[fnName] = Set<callerName>
+    const BUILTIN_SET = new Set(['if','for','while','with','print','len','str','int','float',
+        'list','dict','set','range','enumerate','zip','map','filter','isinstance','hasattr',
+        'getattr','setattr','super','open','type','repr','sorted','reversed','next','iter',
+        'sum','min','max','any','all','self','None','True','False','bool','bytes','tuple',
+        'Exception','ValueError','TypeError','KeyError','IndexError','object','property',
+        'staticmethod','classmethod','abs','round','format','input','vars','dir','id',
+        'callable','hash','hex','oct','bin','chr','ord','pow','divmod','breakpoint']);
+
+    const callsMap = {};   // fnName -> { internal: Set, external: Set }
+    const calledByMap = {}; // fnName -> Set<callerName>
+
+    const fnItems = allFns.filter(it => it.type === 'fn').map(it => it.fn);
+    fnItems.forEach(fn => { calledByMap[fn.name] = new Set(); });
+
+    fnItems.forEach(fn => {
+        const s = Math.max(0, fn.lineno - 1);
+        const e = Math.min(srcLines.length, fn.end_lineno);
+        const bodyText = srcLines.slice(s, e).join('\n');
+        const internal = new Set(), external = new Set();
+        if (fileFnNames && fileFnNames.size) {
+            fileFnNames.forEach(name => {
+                if (name !== fn.name && new RegExp('\\b' + name + '\\s*[(,]').test(bodyText)) {
+                    internal.add(name);
+                    if (calledByMap[name]) calledByMap[name].add(fn.name);
+                }
+            });
+        }
+        const extM = bodyText.match(/\b([A-Za-z_]\w+)\s*\(/g) || [];
+        extM.forEach(m => {
+            const nm = m.replace(/\s*\($/, '');
+            if (!fileFnNames || (!fileFnNames.has(nm) && nm !== fn.name && !BUILTIN_SET.has(nm))) {
+                if (external.size < 8) external.add(nm);
+            }
+        });
+        callsMap[fn.name] = { internal, external };
+    });
+
+    let preHtml = '';
+
+    allFns.forEach(item => {
+        if (item.type === 'class') {
+            const cls = item.cls;
+            const meta = (cls.lcom > 0 ? 'LCOM\u00A0' + cls.lcom + '\u00B7' : '') + cls.method_count + '\u00A0methods\u00B7' + cls.loc + '\u00A0lines';
+            preHtml += '<span class="cls-sep"><span class="cls-sep-label">class ' + cls.name + '</span><span class="cls-sep-meta">' + meta + '</span></span>';
+            return;
+        }
+        const fn = item.fn;
+        const isInNode = nodeMembers.has(fn.name);
+        const ccCls = fn.cc <= 5 ? 'cc-low' : fn.cc <= 10 ? 'cc-med' : 'cc-high';
+        const nodeB = isInNode ? '<span class="fn-sep-badge in-node">node</span>' : '';
+        const ccB = '<span class="fn-sep-badge ' + ccCls + '">CC\u00A0' + fn.cc + '</span>';
+        const sepCls = 'fn-sep' + (isInNode ? ' in-node' : '');
+        const ancId = 'fn-' + fn.name.replace(/\W/g,'_');
+        preHtml += '<span class="' + sepCls + '" id="' + ancId + '">' +
+            '<span class="fn-sep-label">' +
+            '<span class="fn-sep-name">' + fn.name + '</span>' +
+            (fn.sig ? '<span class="fn-sep-sig">' + fn.sig + '</span>' : '') +
+            '<span class="fn-sep-badges">' + nodeB + ccB + '</span>' +
+            '</span></span>';
+
+        // Called-by row
+        const callers = calledByMap[fn.name] ? [...calledByMap[fn.name]] : [];
+        if (callers.length) {
+            preHtml += '<span class="fn-calledby-row"><span class="fn-row-label">&#x2190; called by</span>';
+            callers.forEach(nm => { preHtml += '<span class="call-chip" data-jump="' + nm + '">' + nm + '</span>'; });
+            preHtml += '</span>';
+        }
+
+        // Calls row
+        const info = callsMap[fn.name] || { internal: new Set(), external: new Set() };
+        const intArr = [...info.internal], extArr = [...info.external];
+        if (intArr.length || extArr.length) {
+            preHtml += '<span class="fn-calls-row"><span class="fn-row-label">&#x2192; calls</span>';
+            intArr.forEach(nm => { preHtml += '<span class="call-chip" data-jump="' + nm + '">' + nm + '</span>'; });
+            extArr.forEach(nm => { preHtml += '<span class="call-chip ext">' + nm + '</span>'; });
+            preHtml += '</span>';
+        }
+
+        // Emit highlighted source — pass internal/external sets for inline highlighting
+        const s = Math.max(0, fn.lineno - 1);
+        const e = Math.min(srcLines.length, fn.end_lineno);
+        preHtml += hlPy(srcLines.slice(s, e), s + 1, info.internal, info.external, labelToNodeId);
+        if (e < srcLines.length) preHtml += '\n';
+    });
+
+    pre.innerHTML = preHtml;
+
+    // Wire call-chip clicks and inline .ci span clicks (both use data-jump)
+    function scrollToAnchor(jumpName) {
+        const ancId = 'fn-' + jumpName.replace(/\W/g,'_');
+        const target = pre.querySelector('#' + ancId);
+        if (target) {
+            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            target.classList.add('flash');
+            setTimeout(() => target.classList.remove('flash'), 1000);
+        }
+    }
+    pre.querySelectorAll('[data-jump]').forEach(el => {
+        el.addEventListener('click', ev => {
+            ev.stopPropagation();
+            scrollToAnchor(el.dataset.jump);
+        });
+    });
+
+    // Wire node-link (.cn) clicks — open code map for the linked node
+    pre.querySelectorAll('.cn[data-node]').forEach(el => {
+        el.addEventListener('click', ev => {
+            ev.stopPropagation();
+            const nid = el.dataset.node;
+            if (nid) { focusNode(nid); }
+        });
+    });
+
+    // Wire nav-pane clicks to scroll inside pre
+    if (navPane) {
+        navPane.querySelectorAll('.code-nav-item[data-target]').forEach(item => {
+            item.addEventListener('click', () => {
+                const ancId = 'fn-' + item.dataset.target.replace(/\W/g,'_');
+                const target = pre.querySelector('#' + ancId);
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    target.classList.add('flash');
+                    setTimeout(() => target.classList.remove('flash'), 1000);
+                }
+            });
+        });
+    }
+
+    // Deps bar
+    const deps = getDeps(state.focusedNode);
+    const usedBy = getUsedBy(state.focusedNode);
+    if (deps.length || usedBy.length) {
+        const depsDiv = document.createElement('div');
+        depsDiv.className = 'code-map-deps';
+        let html = '';
+        if (deps.length) {
+            html += '<div class="code-map-deps-title">Depends on</div><div class="dep-tags">';
+            deps.forEach(d => { const dn = nodeMap.get(d); html += '<span class="dep-tag" data-target="' + d + '">' + ((dn && dn.label) || d) + '</span>'; });
+            html += '</div>';
+        }
+        if (usedBy.length) {
+            html += '<div class="code-map-deps-title" style="margin-top:6px">Used by</div><div class="dep-tags">';
+            usedBy.forEach(u => { const un = nodeMap.get(u); html += '<span class="dep-tag used-by" data-target="' + u + '">' + ((un && un.label) || u) + '</span>'; });
+            html += '</div>';
+        }
+        depsDiv.innerHTML = html;
+        depsDiv.querySelectorAll('.dep-tag').forEach(tag => {
+            tag.addEventListener('click', () => { closeCodeMap(); focusNode(tag.dataset.target); });
+        });
+        panelContent.appendChild(depsDiv);
+    }
+
+    // Update nav-pane data-target attributes (must be after innerHTML)
+    if (navPane) {
+        navPane.querySelectorAll('.code-nav-item').forEach(item => {
+            const tn = item.dataset.target;
+            if (!tn) return;
+            item.addEventListener('click', () => {
+                const ancId = 'fn-' + tn.replace(/\W/g,'_');
+                const target = pre.querySelector('#' + ancId);
+                if (target) { target.scrollIntoView({ behavior: 'smooth', block: 'start' }); target.classList.add('flash'); setTimeout(() => target.classList.remove('flash'), 1000); }
+            });
+        });
+    }
+
+    if (state.scrollToMethod) {
+        requestAnimationFrame(() => {
+            const ancId = 'fn-' + state.scrollToMethod.replace(/\W/g,'_');
+            const target = pre.querySelector('#' + ancId);
+            if (target) { target.scrollIntoView({ behavior: 'smooth', block: 'start' }); target.classList.add('flash'); setTimeout(() => target.classList.remove('flash'), 1000); }
+            state.scrollToMethod = null;
+        });
+    }
+}
+
+// hlPy: token-based Python highlighter
+// internalCalls: Set of function names in the same file that this fn calls (will get .ci class + data-jump)
+// externalCalls: Set of external call names (will get .ce class)
+function hlPy(lines, startLine, internalCalls, externalCalls, nodeLinks) {
+    if (!Array.isArray(lines)) lines = lines.split('\n').map(l => l.replace('\r',''));
+    startLine = startLine || 1;
+    internalCalls = internalCalls || new Set();
+    externalCalls = externalCalls || new Set();
+    nodeLinks = nodeLinks || new Map(); // label -> nodeId
+    const KW_SET = new Set(['import','from','return','if','elif','else','for','while','try',
+        'except','finally','with','as','raise','pass','break','continue','yield','lambda',
+        'and','or','not','in','is','None','True','False','async','await','global','nonlocal',
+        'del','assert']);
+    const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#x27;');
+    function hlLine(raw) {
+        const line = raw.replace('\r','');
+        // Split off trailing comment (# not inside a string)
+        let code = line, comment = '';
+        let inStr = false, strCh = '', i = 0;
+        while (i < line.length) {
+            const c = line[i];
+            if (!inStr && (c === '"' || c === "'")) { inStr = true; strCh = c; i++; continue; }
+            if (inStr && c === strCh && line[i-1] !== '\\') { inStr = false; i++; continue; }
+            if (!inStr && c === '#') { code = line.slice(0, i); comment = line.slice(i); break; }
+            i++;
+        }
+        let out = '';
+        let pos = 0;
+        const src = code;
+        while (pos < src.length) {
+            // Decorator at line start
+            if (pos === 0 || /^\s*$/.test(out.replace(/<[^>]+>/g,''))) {
+                const dm = src.slice(pos).match(/^(\s*)(@[\w.]+)/);
+                if (dm) { out += esc(dm[1]) + '<span class="sd">' + esc(dm[2]) + '</span>'; pos += dm[0].length; continue; }
+            }
+            // String literal
+            if (src[pos] === '"' || src[pos] === "'") {
+                const q = src[pos];
+                const triple = src.slice(pos, pos+3) === q+q+q;
+                const end_seq = triple ? q+q+q : q;
+                let end = pos + (triple ? 3 : 1);
+                while (end < src.length) {
+                    if (src[end] === '\\') { end += 2; continue; }
+                    if (src.slice(end, end + end_seq.length) === end_seq) { end += end_seq.length; break; }
+                    end++;
+                }
+                out += '<span class="ss">' + esc(src.slice(pos, end)) + '</span>';
+                pos = end; continue;
+            }
+            // Number
+            const nm = src.slice(pos).match(/^\d+\.?\d*/);
+            if (nm && (pos === 0 || !/\w/.test(src[pos-1]))) {
+                out += '<span class="sn">' + esc(nm[0]) + '</span>';
+                pos += nm[0].length; continue;
+            }
+            // Identifier or keyword
+            const im = src.slice(pos).match(/^[A-Za-z_]\w*/);
+            if (im) {
+                const word = im[0];
+                const next = src[pos + word.length] || '';
+                if (word === 'def') {
+                    const rest = src.slice(pos + 3);
+                    const fnm = rest.match(/^(\s+)([A-Za-z_]\w*)/);
+                    out += '<span class="sk">def</span>';
+                    pos += 3;
+                    if (fnm) { out += esc(fnm[1]) + '<span class="sf">' + esc(fnm[2]) + '</span>'; pos += fnm[0].length; }
+                    continue;
+                }
+                if (word === 'class') {
+                    const rest = src.slice(pos + 5);
+                    const cnm = rest.match(/^(\s+)([A-Za-z_]\w*)/);
+                    out += '<span class="sk">class</span>';
+                    pos += 5;
+                    if (cnm) { out += esc(cnm[1]) + '<span class="sd">' + esc(cnm[2]) + '</span>'; pos += cnm[0].length; }
+                    continue;
+                }
+                if (word === 'self') { out += '<span class="sl">self</span>'; pos += 4; continue; }
+                if (KW_SET.has(word)) { out += '<span class="sk">' + esc(word) + '</span>'; pos += word.length; continue; }
+                // Function call — check if node-link / internal / external / plain
+                if (next === '(') {
+                    if (nodeLinks.has(word)) {
+                        const nid = nodeLinks.get(word);
+                        const nd = nodeMap.get(nid);
+                        const ndFile = nd ? (nd.file || nd.file_path || '') : '';
+                        const tipHtml = '<span class="cn-tip">' +
+                            '<span class="tip-name">' + esc(word) + '</span>' +
+                            (ndFile ? '<span class="tip-file">' + esc(ndFile) + '</span>' : '') +
+                            '<span class="tip-hint">Click to open code view</span>' +
+                            '</span>';
+                        out += '<span class="sf cn" data-node="' + esc(nid) + '">' + esc(word) + tipHtml + '</span>';
+                    } else if (internalCalls.has(word)) {
+                        out += '<span class="sf ci" data-jump="' + esc(word) + '">' + esc(word) + '</span>';
+                    } else if (externalCalls.has(word)) {
+                        out += '<span class="sf ce">' + esc(word) + '</span>';
+                    } else {
+                        out += '<span class="sf">' + esc(word) + '</span>';
+                    }
+                    pos += word.length; continue;
+                }
+                out += esc(word); pos += word.length; continue;
+            }
+            out += esc(src[pos]); pos++;
+        }
+        const commentHtml = comment ? '<span class="sc">' + esc(comment) + '</span>' : '';
+        return out + commentHtml;
+    }
+    return lines.map((rawLine, i) => '<span class="ln">' + (startLine + i) + '</span>' + hlLine(rawLine)).join('\n');
+}
+
+/* ===== RENDER: ANNOTATIONS LIST ===== */
+/* ===== RENDER: TIERS (CENTER) ===== */
+function renderTiers() {
+    const container = document.getElementById('tiers-container');
+    container.innerHTML = '';
+    const tierNames = {};
+        if (DATA.tiers) {
+            DATA.tiers.forEach((t, i) => { tierNames[i] = t.label; });
+        }
+    for (let tier = 0; tier < (DATA.tiers ? DATA.tiers.length : 6); tier++) {
+        const nodes = (DATA.nodes || []).filter(n => n.tier === tier && state.visibleGroups.has(n.group));
+        if (!nodes.length) continue;
+        const tierDiv = document.createElement('div');
+        tierDiv.className = 'tier';
+        tierDiv.dataset.tier = tier;
+        const labelColor = TIER_COLORS[tier] || 'var(--text-muted)';
+        tierDiv.innerHTML = `<div class="tier-label" style="color:${labelColor};border:1px solid ${labelColor}33">${tierNames[tier] || 'Tier ' + tier}</div>`;
+        const row = document.createElement('div');
+        row.className = 'tier-row';
+        nodes.forEach(n => row.appendChild(buildNodeCard(n)));
+        tierDiv.appendChild(row);
+        container.appendChild(tierDiv);
+    }
+}
+
+/* ===== CARD MEMBER RENDERING HELPERS ===== */
+// Parse "name(params) -> ReturnType" into colored HTML spans
+// nameClass: 'di-name' for methods, 'di-fname' for functions
+function renderMemberSig(item, nameClass) {
+    const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const name = item.name || '';
+    const sig  = item.sig  || '';
+    // visibility icon: __ = private/dunder, _ = protected, else public
+    let vis = '';
+    if (name.startsWith('__') && name.endsWith('__')) vis = '<span class="di-vis di-dunder">\u25A0</span>';
+    else if (name.startsWith('_'))                    vis = '<span class="di-vis di-private">\u25AA</span>';
+    else                                              vis = '<span class="di-vis">\u25B6</span>';
+    // Determine name class — __init__ and dunder get dimmer
+    const actualNameCls = (name.startsWith('__') && name.endsWith('__')) ? 'di-dunder' : nameClass;
+    let html = vis + '<span class="' + actualNameCls + '">' + esc(name) + '</span>';
+    if (!sig) return html;
+    // Parse sig: "(params) -> ReturnType"
+    // Split into params portion and return type
+    const arrowIdx = sig.lastIndexOf('->');
+    const paramPart = arrowIdx >= 0 ? sig.slice(0, arrowIdx).trim() : sig.trim();
+    const retPart   = arrowIdx >= 0 ? sig.slice(arrowIdx + 2).trim() : '';
+    // Render params
+    if (paramPart.startsWith('(')) {
+        const inner = paramPart.slice(1, paramPart.lastIndexOf(')'));
+        html += '<span class="di-paren">(</span>';
+        if (inner.trim()) {
+            // Split on commas not inside brackets
+            const params = [];
+            let depth = 0, cur = '';
+            for (const ch of inner) {
+                if (ch === '[' || ch === '(') { depth++; cur += ch; }
+                else if (ch === ']' || ch === ')') { depth--; cur += ch; }
+                else if (ch === ',' && depth === 0) { params.push(cur.trim()); cur = ''; }
+                else cur += ch;
+            }
+            if (cur.trim()) params.push(cur.trim());
+            params.forEach((p, i) => {
+                if (p === 'self' || p === 'cls') {
+                    html += '<span class="di-param" style="opacity:0.4">' + esc(p) + '</span>';
+                } else {
+                    const colonIdx = p.indexOf(':');
+                    if (colonIdx >= 0) {
+                        html += '<span class="di-param">' + esc(p.slice(0, colonIdx).trim()) + '</span>';
+                        html += '<span class="di-colon">:</span>';
+                        html += '<span class="di-type">' + esc(p.slice(colonIdx + 1).trim()) + '</span>';
+                    } else {
+                        html += '<span class="di-param">' + esc(p) + '</span>';
+                    }
+                }
+                if (i < params.length - 1) html += '<span class="di-sep">, </span>';
+            });
+        }
+        html += '<span class="di-paren">)</span>';
+    }
+    // Render return type
+    if (retPart) {
+        html += '<span class="di-arr"> \u2192 </span><span class="di-ret">' + esc(retPart) + '</span>';
+    }
+    return html;
+}
+// Render a field string with color based on naming convention
+function renderFieldSig(f) {
+    const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const name = typeof f === 'string' ? f : (f.name || String(f));
+    if (name.startsWith('__') && name.endsWith('__'))
+        return '<span class="di-vis di-dunder">\u25A0</span><span class="di-dunder">' + esc(name) + '</span>';
+    if (name.startsWith('_'))
+        return '<span class="di-vis di-private">\u25AA</span><span class="di-private">' + esc(name) + '</span>';
+    return '<span class="di-vis">\u25B6</span><span class="di-field">' + esc(name) + '</span>';
+}
+
+/* ===== BUILD NODE CARD ===== */
+function buildNodeCard(n) {
+    const card = document.createElement('div');
+    card.className = 'node-card';
+    card.dataset.nodeId = n.id;
+    if (state.expandedNodes.has(n.id)) card.classList.add('expanded');
+    // Search highlight
+    if (state.searchQuery) {
+        const tokens = tokenize(state.searchQuery);
+        if (tokens.length && nodeMatchesSearch(n, tokens)) {
+            card.classList.add('search-match');
+            if (getBestMatch(tokens) === n.id) card.style.boxShadow = 'var(--glow-search)';
+        }
+    }
+    // Focus dim
+    if (state.focusedNode && state.focusedNode !== n.id && !getConnected(state.focusedNode).has(n.id)) {
+        card.classList.add('dimmed');
+    }
+    if (state.focusedNode === n.id) card.classList.add('focused');
+    // Border color by tier
+    const tierColor = TIER_COLORS[n.tier] || 'var(--accent-blue)';
+    card.style.borderLeftColor = tierColor;
+    // Coupling badge
+    const cs = couplingScores.get(n.id) || 0;
+    const cClass = couplingClass(cs);
+    // Icon
+    const iconType = n.icon || 'M';
+    const iconBg = ICON_COLORS[iconType] || '#64748B';
+    // Linked tasks for this node
+    const linkedTasks = state.todos.filter(t => t.linkedNode === n.id);
+    // Metrics for this node
+    const nm = NODE_METRICS[n.id] || {};
+    // Build HTML
+    let html = `
+        <div class="coupling-badge ${cClass}">${cs}</div>
+        <button class="code-view-btn" data-node-id="${n.id}" title="View code (C)">&lt;/&gt;</button>
+        <button class="copy-prompt-btn" data-node-id="${n.id}" title="Copy prompt">&#128203;</button>
+        <div class="card-header">
+            <div class="card-icon" style="background:${iconBg}">${escHtml(iconType)}</div>
+            <span class="card-label" title="${escHtml(n.label || n.id)}">${escHtml(n.label || n.id)}</span>
+            ${n.badge ? '<span class="card-badge">' + escHtml(n.badge) + '</span>' : ''}
+        </div>
+        ${n.file ? '<div class="card-path">' + escHtml(n.file) + '</div>' : ''}
+        ${n.description ? '<div class="card-desc">' + escHtml(n.description) + '</div>' : ''}
+        ${n.extends ? '<div class="card-extends">extends ' + escHtml(n.extends) + '</div>' : ''}
+    `;
+    // Metric badges
+    let badges = '';
+    if (nm.max_cc !== undefined && nm.max_cc > 0) {
+        const ccClass = nm.max_cc <= 5 ? 'cc-low' : nm.max_cc <= 10 ? 'cc-med' : 'cc-high';
+        badges += '<span class="metric-badge ' + ccClass + '" title="Max cyclomatic complexity">CC ' + nm.max_cc + '</span>';
+    }
+    if (nm.instability !== undefined && (nm.ca > 0 || nm.ce > 0)) {
+        const iClass = nm.instability <= 0.3 ? 'inst-stable' : nm.instability <= 0.7 ? 'inst-mid' : 'inst-unstable';
+        badges += '<span class="metric-badge ' + iClass + '" title="Instability index (Ce/(Ca+Ce))">I=' + nm.instability + '</span>';
+    }
+    if (nm.lcom !== undefined && nm.lcom > 0) {
+        badges += '<span class="metric-badge lcom" title="Lack of Cohesion (0=cohesive, 1=disjoint)">LCOM ' + nm.lcom + '</span>';
+    }
+    if (nm.ca !== undefined && nm.ca > 0) {
+        badges += '<span class="metric-badge ca-badge" title="Afferent coupling (depended on by)">Ca=' + nm.ca + '</span>';
+    }
+    if (nm.ce !== undefined && nm.ce > 0) {
+        badges += '<span class="metric-badge ce-badge" title="Efferent coupling (depends on)">Ce=' + nm.ce + '</span>';
+    }
+    if (badges) html += '<div class="metric-badges">' + badges + '</div>';
+    // Expanded details
+    html += '<div class="card-details">';
+    // Methods
+    if (n.methods && n.methods.length) {
+        html += '<div class="detail-section"><div class="detail-section-title">Methods (' + n.methods.length + ')</div>';
+        n.methods.forEach(m => {
+            const mObj = typeof m === 'object' ? m : { name: m, sig: '' };
+            html += '<div class="detail-item" style="cursor:pointer" data-view-fn="' + escHtml(mObj.name) + '">' + renderMemberSig(mObj, 'di-name') + '</div>';
+        });
+        html += '</div>';
+    }
+    // Functions
+    if (n.functions && n.functions.length) {
+        html += '<div class="detail-section"><div class="detail-section-title">Functions (' + n.functions.length + ')</div>';
+        n.functions.forEach(f => {
+            const fObj = typeof f === 'object' ? f : { name: f, sig: '' };
+            html += '<div class="detail-item" style="cursor:pointer" data-view-fn="' + escHtml(fObj.name) + '">' + renderMemberSig(fObj, 'di-fname') + '</div>';
+        });
+        html += '</div>';
+    }
+    // Fields
+    if (n.fields && n.fields.length) {
+        html += '<div class="detail-section"><div class="detail-section-title">Fields (' + n.fields.length + ')</div>';
+        n.fields.forEach(f => { html += '<div class="detail-item">' + renderFieldSig(f) + '</div>'; });
+        html += '</div>';
+    }
+    // Dependencies
+    const deps = getDeps(n.id);
+    if (deps.length) {
+        html += '<div class="detail-section"><div class="detail-section-title">Dependencies</div><div class="dep-tags">';
+        deps.forEach(d => { const dn = nodeMap.get(d); html += '<span class="dep-tag" data-target="' + d + '">' + escHtml((dn && dn.label) || d) + '</span>'; });
+        html += '</div></div>';
+    }
+    // Used by
+    const ub = getUsedBy(n.id);
+    if (ub.length) {
+        html += '<div class="detail-section"><div class="detail-section-title">Used by</div><div class="dep-tags">';
+        ub.forEach(u => { const un = nodeMap.get(u); html += '<span class="dep-tag used-by" data-target="' + u + '">' + escHtml((un && un.label) || u) + '</span>'; });
+        html += '</div></div>';
+    }
+    // Inputs/outputs
+    if (n.inputs) {
+        html += '<div class="detail-section"><div class="detail-section-title">Inputs</div><div class="detail-item">' + escHtml(n.inputs) + '</div></div>';
+    }
+    if (n.outputs) {
+        html += '<div class="detail-section"><div class="detail-section-title">Outputs</div><div class="detail-item">' + escHtml(n.outputs) + '</div></div>';
+    }
+    html += '</div>'; // end card-details
+    // Linked tasks
+    linkedTasks.forEach(t => {
+        const doneStyle = t.done ? ' style="text-decoration:line-through;opacity:0.5"' : '';
+        html += '<div class="card-annotation"' + doneStyle + '>' + escHtml(t.text) + '</div>';
+    });
+    // Expand arrow
+    html += '<div class="expand-arrow">\u25BC</div>';
+    card.innerHTML = html;
+    // Method/function -> Code Map links
+    card.querySelectorAll('[data-view-fn]').forEach(el => {
+        el.addEventListener('click', e => {
+            e.stopPropagation();
+            state.scrollToMethod = el.dataset.viewFn;
+            switchTab('code');
+            renderCodeMap();
+        });
+    });
+    // Events
+    card.addEventListener('click', e => {
+        if (e.target.closest('.code-view-btn')) {
+            e.stopPropagation();
+            focusNode(n.id);
+            openCodeMap();
+            return;
+        }
+        if (e.target.closest('.copy-prompt-btn')) {
+            e.stopPropagation();
+            const prompt = buildPrompt(n.id, 'analyze');
+            copyToClipboard(prompt);
+            showToast('Prompt copied! Paste in Claude Code');
+            return;
+        }
+        if (e.target.closest('.dep-tag')) {
+            e.stopPropagation();
+            const target = e.target.closest('.dep-tag').dataset.target;
+            if (target) focusNode(target);
+            return;
+        }
+        toggleExpand(n.id);
+        focusNode(n.id);
+    });
+    card.addEventListener('contextmenu', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        showContextMenu(e.clientX, e.clientY, n.id);
+    });
+    return card;
+}
+
+/* ===== RENDER: RIGHT PANEL ===== */
+function renderRightPanel() {
+    const container = document.getElementById('panel-content');
+    container.innerHTML = '';
+    const sections = [
+        { title: 'Utilities', key: 'utilities' },
+        { title: 'Config Files', key: 'config' },
+        { title: 'Data Files', key: 'data' }
+    ];
+    sections.forEach(sec => {
+        const nodes = (DATA.nodes || []).filter(n => n.panel === sec.key && state.visibleGroups.has(n.group));
+        const secDiv = document.createElement('div');
+        secDiv.className = 'rpanel-section';
+        const hdr = document.createElement('div');
+        hdr.className = 'rpanel-header';
+        hdr.innerHTML = `<span class="rpanel-arrow">\u25BC</span> ${escHtml(sec.title)} (${nodes.length})`;
+        hdr.addEventListener('click', () => {
+            hdr.classList.toggle('collapsed');
+        });
+        secDiv.appendChild(hdr);
+        const items = document.createElement('div');
+        items.className = 'rpanel-items';
+        nodes.forEach(n => {
+            const item = document.createElement('div');
+            item.className = 'rpanel-item';
+            item.dataset.nodeId = n.id;
+            if (state.focusedNode && state.focusedNode !== n.id && !getConnected(state.focusedNode).has(n.id)) {
+                item.classList.add('dimmed');
+            }
+            item.innerHTML = `<div class="rpanel-item-name">${escHtml(n.label || n.id)}</div>${n.file ? '<div class="rpanel-item-path">' + escHtml(n.file) + '</div>' : ''}`;
+            item.addEventListener('click', () => focusNode(n.id));
+            item.addEventListener('contextmenu', e => {
+                e.preventDefault();
+                showContextMenu(e.clientX, e.clientY, n.id);
+            });
+            items.appendChild(item);
+        });
+        secDiv.appendChild(items);
+        container.appendChild(secDiv);
+    });
+}
+
+/* ===== RENDER: SMELLS PANEL ===== */
+function renderSmellsPanel() {
+    const list = document.getElementById('smells-list');
+    list.innerHTML = '';
+    SMELLS.forEach(s => {
+        const card = document.createElement('div');
+        card.className = 'smell-card';
+        card.innerHTML = `
+            <div class="smell-title"><span class="smell-severity ${s.severity}">${s.severity.toUpperCase()}</span> ${escHtml(s.title)}</div>
+            <div class="smell-desc">${escHtml(s.description)}</div>
+            ${s.metric ? '<div class="smell-nodes" style="color:var(--accent-cyan)">' + escHtml(s.metric) + '</div>' : ''}
+            <div class="smell-fix">Fix: ${escHtml(s.fix)}</div>
+            <div class="smell-nodes">Nodes: ${s.nodes.join(', ')}</div>
+        `;
+        card.addEventListener('click', () => {
+            // Highlight affected nodes
+            clearSmellHighlights();
+            s.nodes.forEach(name => {
+                const el = document.querySelector(`.node-card[data-node-id="${name}"], .rpanel-item[data-node-id="${name}"]`);
+                if (el) el.classList.add('smell-highlight');
+                // Also try matching by label
+                nodeMap.forEach((n, id) => {
+                    if ((n.label || n.id) === name) {
+                        const el2 = document.querySelector(`.node-card[data-node-id="${id}"]`);
+                        if (el2) el2.classList.add('smell-highlight');
+                    }
+                });
+            });
+        });
+        list.appendChild(card);
+    });
+}
+function clearSmellHighlights() {
+    document.querySelectorAll('.smell-highlight').forEach(el => el.classList.remove('smell-highlight'));
+}
+
+/* ===== EDGES (SVG BEZIER) ===== */
+function renderEdges() {
+    const svg = document.getElementById('edge-svg');
+    // Remove old paths (keep defs)
+    svg.querySelectorAll('path.edge-line, line.edge-line').forEach(el => el.remove());
+    const wrapper = document.getElementById('canvas-wrapper');
+    const wrapperRect = wrapper.getBoundingClientRect();
+    (DATA.edges || []).forEach(e => {
+        const fromEl = wrapper.querySelector(`.node-card[data-node-id="${e.from}"]`);
+        const toEl = wrapper.querySelector(`.node-card[data-node-id="${e.to}"]`);
+        if (!fromEl || !toEl) return;
+        // Check visibility
+        const fromNode = nodeMap.get(e.from);
+        const toNode = nodeMap.get(e.to);
+        if (!fromNode || !toNode) return;
+        if (!state.visibleGroups.has(fromNode.group) || !state.visibleGroups.has(toNode.group)) return;
+        const fromRect = fromEl.getBoundingClientRect();
+        const toRect = toEl.getBoundingClientRect();
+        // Positions relative to wrapper
+        const x1 = fromRect.left - wrapperRect.left + fromRect.width / 2;
+        const y1 = fromRect.top - wrapperRect.top + fromRect.height;
+        const x2 = toRect.left - wrapperRect.left + toRect.width / 2;
+        const y2 = toRect.top - wrapperRect.top;
+        // Edge style
+        const style = e.style || 'dependency';
+        let stroke, dasharray, width, marker;
+        switch (style) {
+            case 'inheritance':
+                stroke = 'var(--edge-inheritance)'; dasharray = '6 4'; width = 1.5; marker = 'url(#arrow-inh)';
+                break;
+            case 'factory':
+                stroke = 'var(--edge-factory)'; dasharray = '3 4'; width = 1.5; marker = 'url(#arrow-factory)';
+                break;
+            case 'data':
+                stroke = 'var(--edge-data)'; dasharray = '2 3'; width = 1; marker = 'url(#arrow-data)';
+                break;
+            default: // dependency
+                stroke = 'var(--edge-dependency)'; dasharray = 'none'; width = 1.5; marker = 'url(#arrow-dep)';
+        }
+        // Opacity based on focus
+        let opacity = 0.45;
+        if (state.focusedNode) {
+            if (e.from === state.focusedNode || e.to === state.focusedNode) opacity = 0.9;
+            else opacity = 0.08;
+        }
+        // Right panel edge: thinner, lower opacity
+        if ((fromNode.panel || toNode.panel) && !state.focusedNode) {
+            opacity = 0.2;
+            width = 0.8;
+        }
+        // Bezier curve
+        const midY = (y1 + y2) / 2;
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('class', 'edge-line');
+        path.setAttribute('d', `M${x1},${y1} C${x1},${midY} ${x2},${midY} ${x2},${y2}`);
+        path.setAttribute('stroke', stroke);
+        path.setAttribute('stroke-width', width);
+        path.setAttribute('fill', 'none');
+        path.setAttribute('opacity', opacity);
+        path.setAttribute('marker-end', marker);
+        if (dasharray !== 'none') path.setAttribute('stroke-dasharray', dasharray);
+        // Tooltip
+        if (e.label) {
+            const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+            title.textContent = e.label;
+            path.appendChild(title);
+        }
+        // Hover
+        path.style.transition = 'opacity 0.15s';
+        path.style.pointerEvents = 'visibleStroke';
+        path.style.cursor = 'default';
+        path.addEventListener('mouseenter', () => { path.setAttribute('opacity', '0.9'); path.setAttribute('stroke-width', width + 1); });
+        path.addEventListener('mouseleave', () => { path.setAttribute('opacity', opacity); path.setAttribute('stroke-width', width); });
+        svg.appendChild(path);
+    });
+    // Update SVG size
+    svg.style.width = wrapper.scrollWidth + 'px';
+    svg.style.height = wrapper.scrollHeight + 'px';
+}
+
+/* ===== FOCUS ===== */
+function focusNode(nodeId) {
+    const codeMapOpen = document.getElementById('code-map-panel').classList.contains('visible');
+    const sameNode = state.focusedNode === nodeId;
+    state.focusedNode = nodeId;
+    // Always expand tree to show focused node and its connections
+    const fn = nodeMap.get(nodeId);
+    if (fn && fn.file) expandTreeToFile(fn.file);
+    getConnected(nodeId).forEach(cid => {
+        const cn = nodeMap.get(cid);
+        if (cn && cn.file) expandTreeToFile(cn.file);
+    });
+    // Always update the file tree highlight (regardless of active tab or same-node)
+    renderFileTree();
+    if (!sameNode || codeMapOpen) {
+        renderAll();
+        updateFocusPanel();
+    }
+    const codeMapVisible = document.getElementById('code-map-panel').classList.contains('visible');
+    if (state.activeTab === 'code' || codeMapVisible) renderCodeMap();
+    if (!sameNode) {
+        const el = document.querySelector(`.node-card[data-node-id="${nodeId}"]`);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+}
+function unfocus() {
+    if (!state.focusedNode) return;
+    state.focusedNode = null;
+    clearSmellHighlights();
+    renderAll();
+    updateFocusPanel();
+}
+function updateFocusPanel() {
+    const panel = document.getElementById('focus-panel');
+    if (!state.focusedNode) {
+        panel.classList.remove('visible');
+        return;
+    }
+    panel.classList.add('visible');
+    const n = nodeMap.get(state.focusedNode);
+    document.getElementById('focus-name').textContent = (n && n.label) || state.focusedNode;
+    const depsTags = document.getElementById('focus-deps-tags');
+    const usedTags = document.getElementById('focus-used-tags');
+    depsTags.innerHTML = '';
+    usedTags.innerHTML = '';
+    getDeps(state.focusedNode).forEach(d => {
+        const dn = nodeMap.get(d);
+        const tag = document.createElement('span');
+        tag.className = 'dep-tag';
+        tag.textContent = (dn && dn.label) || d;
+        tag.addEventListener('click', () => focusNode(d));
+        depsTags.appendChild(tag);
+    });
+    getUsedBy(state.focusedNode).forEach(u => {
+        const un = nodeMap.get(u);
+        const tag = document.createElement('span');
+        tag.className = 'dep-tag used-by';
+        tag.textContent = (un && un.label) || u;
+        tag.addEventListener('click', () => focusNode(u));
+        usedTags.appendChild(tag);
+    });
+}
+
+/* ===== EXPAND/COLLAPSE ===== */
+function toggleExpand(nodeId) {
+    if (state.expandedNodes.has(nodeId)) state.expandedNodes.delete(nodeId);
+    else state.expandedNodes.add(nodeId);
+    renderAll();
+}
+
+/* ===== CONTEXT MENU ===== */
+function showContextMenu(x, y, nodeId) {
+    state.contextMenuNode = nodeId;
+    const menu = document.getElementById('context-menu');
+    const n = nodeMap.get(nodeId);
+    const label = (n && n.label) || nodeId;
+    menu.innerHTML = '';
+    const items = [
+        { icon: '\uD83D\uDD0D', text: 'Explain this class', action: () => { copyToClipboard(buildPrompt(nodeId, 'explain')); showToast('Prompt copied!'); } },
+        { icon: '\uD83D\uDC1B', text: 'Find bugs', action: () => { copyToClipboard(buildPrompt(nodeId, 'bugs')); showToast('Prompt copied!'); } },
+        { icon: '\u2699\uFE0F', text: 'Refactor', action: () => { copyToClipboard(buildPrompt(nodeId, 'refactor')); showToast('Prompt copied!'); } },
+        { icon: '\u2705', text: 'Show test coverage', action: () => { copyToClipboard(buildPrompt(nodeId, 'test')); showToast('Prompt copied!'); } },
+        { icon: '\uD83D\uDCDD', text: 'Add task for this node', action: () => addTaskForNode(nodeId) },
+        { icon: '{}', text: 'View source code', action: () => { switchTab('code'); renderCodeMap(); } },
+        { icon: '\uD83E\uDD16', text: 'Copy Claude Code prompt', action: () => { copyToClipboard(buildClaudeCommand(nodeId)); showToast('Claude Code prompt copied!'); } },
+    ];
+    items.forEach(it => {
+        const div = document.createElement('div');
+        div.className = 'ctx-item';
+        div.innerHTML = `<span>${it.icon}</span> ${escHtml(it.text)}`;
+        div.addEventListener('click', e => {
+            e.stopPropagation();
+            hideContextMenu();
+            it.action();
+        });
+        menu.appendChild(div);
+    });
+    // Position
+    menu.style.display = 'block';
+    const mw = menu.offsetWidth, mh = menu.offsetHeight;
+    menu.style.left = Math.min(x, window.innerWidth - mw - 8) + 'px';
+    menu.style.top = Math.min(y, window.innerHeight - mh - 8) + 'px';
+}
+function hideContextMenu() {
+    document.getElementById('context-menu').style.display = 'none';
+    state.contextMenuNode = null;
+}
+
+/* ===== ADD TASK FOR NODE ===== */
+function addTaskForNode(nodeId) {
+    const n = nodeMap.get(nodeId);
+    const label = (n && n.label) || nodeId;
+    switchTab('todos');
+    const input = document.getElementById('todo-input');
+    input.focus();
+    input.placeholder = 'Task for ' + label + '...';
+    const sel = document.getElementById('todo-link-node');
+    if (sel) sel.value = nodeId;
+}
+
+/* ===== CLAUDE CODE INTEGRATION ===== */
+function buildClaudeCommand(nodeId) {
+    const n = nodeMap.get(nodeId);
+    if (!n) return '';
+    const file = n.file || '';
+    const label = n.label || n.id;
+    const smellsForNode = SMELLS.filter(s => (s.nodes || []).some(sn => sn === label || sn === n.id));
+    const tasks = state.todos.filter(t => t.linkedNode === nodeId && !t.done);
+    let cmd = 'Read the file ' + file;
+    if (tasks.length) {
+        cmd += ' and help me with: ' + tasks.map(t => t.text).join('; ');
+    } else if (smellsForNode.length) {
+        const smell = smellsForNode[0];
+        cmd += ' and fix the ' + (smell.title || '').split(':')[0].toLowerCase() + ' in ' + label + '. ' + (smell.fix || '');
+    } else {
+        const deps = getDeps(nodeId).map(id => (nodeMap.get(id) || {}).label || id);
+        cmd += ' and help me review the ' + label + ' ' + (n.badge || 'module') + '.';
+        if (deps.length) cmd += ' It depends on: ' + deps.join(', ') + '.';
+    }
+    return cmd;
+}
+
+/* ===== ZOOM ===== */
+function setZoom(z) {
+    state.zoom = Math.max(0.3, Math.min(2.0, z));
+    const wrapper = document.getElementById('canvas-wrapper');
+    wrapper.style.transform = `scale(${state.zoom})`;
+    document.getElementById('zoom-level').textContent = Math.round(state.zoom * 100) + '%';
+    // Defer edge rendering
+    requestAnimationFrame(() => renderEdges());
+}
+
+/* ===== RIGHT PANEL TOGGLE ===== */
+function toggleRightPanel() {
+    state.rightPanelOpen = !state.rightPanelOpen;
+    const panel = document.getElementById('right-panel');
+    const center = document.getElementById('center');
+    const toggle = document.getElementById('panel-toggle');
+    if (state.rightPanelOpen) {
+        panel.classList.remove('collapsed');
+        panel.classList.add('open');
+        center.classList.remove('panel-closed');
+        center.classList.add('panel-open');
+        toggle.textContent = '<';
+    } else {
+        panel.classList.add('collapsed');
+        panel.classList.remove('open');
+        center.classList.add('panel-closed');
+        center.classList.remove('panel-open');
+        toggle.textContent = '>';
+    }
+    requestAnimationFrame(() => renderEdges());
+}
+
+/* ===== RENDER ALL ===== */
+function renderAll() {
+    renderGroupToggles();
+    renderStats();
+    renderTiers();
+    renderRightPanel();
+    renderSmellsPanel();
+    // Always re-render explorer when it's the active tab OR code map modal is open
+    // (so file highlights update even while viewing code map)
+    const codeMapNowOpen = document.getElementById('code-map-panel').classList.contains('visible');
+    if (state.activeTab === 'explorer' || codeMapNowOpen) renderFileTree();
+    if (state.activeTab === 'todos') renderTodos();
+    if (state.activeTab === 'code') renderCodeMap();
+    updateTodoBadge();
+    requestAnimationFrame(() => renderEdges());
+}
+
+/* ===== EVENT LISTENERS ===== */
+function initEvents() {
+    // Search
+    document.getElementById('search-input').addEventListener('input', e => {
+        state.searchQuery = e.target.value;
+        renderAll();
+    });
+    // Zoom buttons
+    document.getElementById('zoom-in').addEventListener('click', () => setZoom(state.zoom + 0.1));
+    document.getElementById('zoom-out').addEventListener('click', () => setZoom(state.zoom - 0.1));
+    document.getElementById('zoom-fit').addEventListener('click', () => setZoom(1));
+    // Ctrl+scroll zoom
+    document.getElementById('center').addEventListener('wheel', e => {
+        if (e.ctrlKey) {
+            e.preventDefault();
+            setZoom(state.zoom + (e.deltaY < 0 ? 0.05 : -0.05));
+        }
+    }, { passive: false });
+    // Right panel toggle
+    document.getElementById('panel-toggle').addEventListener('click', toggleRightPanel);
+    // Smells toggle
+    document.getElementById('smells-toggle').addEventListener('click', () => {
+        state.showSmells = !state.showSmells;
+        document.getElementById('smells-panel').classList.toggle('visible', state.showSmells);
+    });
+    // Click background to unfocus
+    document.getElementById('canvas-wrapper').addEventListener('click', e => {
+        if (e.target === e.currentTarget || e.target.classList.contains('tier-row') || e.target.classList.contains('tier') || e.target.classList.contains('tier-label')) {
+            unfocus();
+        }
+    });
+    // Backdrop click closes code map
+    const backdrop = document.getElementById('code-map-backdrop');
+    if (backdrop) backdrop.addEventListener('click', closeCodeMap);
+    // Escape closes code map or unfocuses
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') {
+            hideContextMenu();
+            const panel = document.getElementById('code-map-panel');
+            if (panel && panel.classList.contains('visible')) { closeCodeMap(); return; }
+            unfocus();
+        }
+        // N for add task
+        if (e.key === 'n' || e.key === 'N') {
+            if (state.focusedNode && !e.target.matches('input, textarea, select')) {
+                addTaskForNode(state.focusedNode);
+            }
+        }
+        if ((e.key === 'e' || e.key === 'E') && !e.target.matches('input, textarea, select')) switchTab('explorer');
+        if ((e.key === 't' || e.key === 'T') && !e.target.matches('input, textarea, select')) switchTab('todos');
+        if ((e.key === 'c' || e.key === 'C') && !e.target.matches('input, textarea, select')) {
+            if (state.focusedNode) openCodeMap();
+        }
+    });
+    // Click outside to hide context menu
+    document.addEventListener('click', e => {
+        if (!e.target.closest('#context-menu')) hideContextMenu();
+    });
+    // Tab switching
+    document.querySelectorAll('.sidebar-tab').forEach(tab => {
+        tab.addEventListener('click', () => switchTab(tab.dataset.tab));
+    });
+    // Code map close button
+    const closeBtn = document.getElementById('code-map-close-btn');
+    if (closeBtn) closeBtn.addEventListener('click', closeCodeMap);
+    // Todo input (always visible)
+    document.getElementById('todo-input').addEventListener('keydown', e => {
+        if (e.key === 'Enter') {
+            const text = e.target.value.trim();
+            if (text) {
+                addTodo(text, document.getElementById('todo-link-node').value || null);
+                e.target.value = '';
+                document.getElementById('todo-input').placeholder = 'Add a task... (Enter to save)';
+                document.getElementById('todo-link-node').value = '';
+            }
+        }
+    });
+    document.getElementById('export-all-btn').addEventListener('click', exportAll);
+    // Resize -> redraw edges
+    let resizeTimer;
+    window.addEventListener('resize', () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => renderEdges(), 100);
+    });
+    // Scroll -> redraw edges
+    document.getElementById('center').addEventListener('scroll', () => {
+        // Edges are in the canvas-wrapper which scrolls with center, so they stay aligned.
+        // Only need to redraw on actual layout changes.
+    });
+}
+
+
+/* ===== AI DESCRIPTIONS ===== */
+function buildBulkPrompt() {
+    const missing = (DATA.nodes || []).filter(n => !n.description || !n.description.trim());
+    if (!missing.length) return { prompt: '', count: 0 };
+    const lines = [
+        'You are documenting a Python codebase architecture diagram.',
+        'For each node, write a concise 1-sentence description (max 15 words).',
+        'Return ONLY valid JSON (no markdown, no code fences, no extra text):',
+        '{  "<node_id>": "<description>", ... }',
+        '',
+        'Nodes to describe:'
+    ];
+    missing.forEach(n => {
+        const file = n.file_path || n.file || '';
+        const type = n.badge || n.type || 'module';
+        const mbrs = [...(n.methods || []).slice(0,8),
+                      ...(n.functions || []).slice(0,8)].join(', ');
+        let ln = '  "' + n.id + '": ' + (n.label || n.id) + ' [' + type + ']';
+        if (file) ln += ' in ' + file;
+        if (mbrs) ln += ' | members: ' + mbrs;
+        lines.push(ln);
+    });
+    return { prompt: lines.join('
+'), count: missing.length };
+}
+function openAiDescModal() {
+    const result = buildBulkPrompt();
+    const total = (DATA.nodes || []).length;
+    const already = total - result.count;
+    const countEl = document.getElementById('ai-desc-count');
+    if (result.count === 0) {
+        countEl.textContent = 'All ' + total + ' nodes already have descriptions!';
+        document.getElementById('ai-desc-prompt-box').textContent = '(nothing to generate)';
+        document.getElementById('ai-desc-copy-btn').disabled = true;
+    } else {
+        countEl.textContent = result.count + ' of ' + total + ' nodes need descriptions' +
+            (already ? ' (' + already + ' already have one)' : '') + '.';
+        document.getElementById('ai-desc-prompt-box').textContent = result.prompt;
+        document.getElementById('ai-desc-copy-btn').disabled = false;
+        document.getElementById('ai-desc-copy-btn')._prompt = result.prompt;
+    }
+    document.getElementById('ai-desc-paste').value = '';
+    document.getElementById('ai-desc-copy-status').textContent = '';
+    document.getElementById('ai-desc-apply-status').textContent = '';
+    document.getElementById('ai-desc-modal-backdrop').classList.add('open');
+}
+function closeAiDescModal() {
+    document.getElementById('ai-desc-modal-backdrop').classList.remove('open');
+}
+
+function applyAiDescriptions() {
+    const raw = document.getElementById('ai-desc-paste').value.trim();
+    if (!raw) {
+        document.getElementById('ai-desc-apply-status').textContent = 'Nothing pasted yet.';
+        return;
+    }
+    let jsonStr = raw;
+    const fence = String.fromCharCode(96,96,96);
+    if (jsonStr.startsWith(fence)) {
+        const nl = jsonStr.indexOf('
+');
+        jsonStr = nl >= 0 ? jsonStr.substring(nl + 1) : '';
+        if (jsonStr.endsWith(fence)) { jsonStr = jsonStr.substring(0, jsonStr.length - 3); }
+    }
+    jsonStr = jsonStr.trim();
+    let parsed;
+    try { parsed = JSON.parse(jsonStr); }
+    catch (err) {
+        document.getElementById('ai-desc-apply-status').textContent = 'Invalid JSON: ' + err.message;
+        return;
+    }
+    if (typeof parsed !== 'object' || Array.isArray(parsed)) {
+        document.getElementById('ai-desc-apply-status').textContent =
+            'Expected a JSON object {node_id: description, ...}';
+        return;
+    }
+    let applied = 0, skipped = 0;
+    Object.entries(parsed).forEach(([id, desc]) => {
+        const n = nodeMap.get(id);
+        if (!n) { skipped++; return; }
+        if (typeof desc === 'string' && desc.trim()) { n.description = desc.trim(); applied++; }
+    });
+    (DATA.nodes || []).forEach(n => {
+        const updated = nodeMap.get(n.id);
+        if (updated && updated.description) n.description = updated.description;
+    });
+    renderAll();
+    const msg = 'Applied ' + applied + ' description' + (applied !== 1 ? 's' : '') +
+        (skipped ? ' (' + skipped + ' IDs not found)' : '') + '.';
+    document.getElementById('ai-desc-apply-status').textContent = msg;
+    showToast(msg);
+}
+function initAiDescModal() {
+    document.getElementById('ai-desc-btn').addEventListener('click', openAiDescModal);
+    document.getElementById('ai-desc-close-btn').addEventListener('click', closeAiDescModal);
+    document.getElementById('ai-desc-modal-backdrop').addEventListener('click', e => {
+        if (e.target === e.currentTarget) closeAiDescModal();
+    });
+    document.getElementById('ai-desc-copy-btn').addEventListener('click', () => {
+        const btn = document.getElementById('ai-desc-copy-btn');
+        const prompt = btn._prompt || document.getElementById('ai-desc-prompt-box').textContent;
+        copyToClipboard(prompt);
+        document.getElementById('ai-desc-copy-status').textContent = 'Copied!';
+        setTimeout(() => { document.getElementById('ai-desc-copy-status').textContent = ''; }, 2000);
+    });
+    document.getElementById('ai-desc-apply-btn').addEventListener('click', applyAiDescriptions);
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' &&
+            document.getElementById('ai-desc-modal-backdrop').classList.contains('open')) {
+            e.stopPropagation();
+            closeAiDescModal();
+        }
+    }, true);
+}
+
+/* ===== INIT ===== */
+function init() {
+    initAiDescModal();
+    initIndices();
+    initEvents();
+    renderAll();
+    document.getElementById('zoom-level').textContent = '100%';
+    // Dynamic smells count
+    const warnings = SMELLS.filter(s => s.severity === 'warning').length;
+    const infos = SMELLS.filter(s => s.severity === 'info').length;
+    document.getElementById('smells-toggle').textContent = 'Smells (' + warnings + ' warn, ' + infos + ' info)';
+}
+init();
+
+})();
+</script>
+</body>
+</html>
