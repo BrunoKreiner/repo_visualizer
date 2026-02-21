@@ -2605,8 +2605,7 @@ function buildBulkPrompt() {
         if (mbrs) ln += ' | members: ' + mbrs;
         lines.push(ln);
     });
-    return { prompt: lines.join('
-'), count: missing.length };
+    return { prompt: lines.join(String.fromCharCode(10)), count: missing.length };
 }
 function openAiDescModal() {
     const result = buildBulkPrompt();
@@ -2642,8 +2641,7 @@ function applyAiDescriptions() {
     let jsonStr = raw;
     const fence = String.fromCharCode(96,96,96);
     if (jsonStr.startsWith(fence)) {
-        const nl = jsonStr.indexOf('
-');
+        const nl = jsonStr.indexOf(String.fromCharCode(10));
         jsonStr = nl >= 0 ? jsonStr.substring(nl + 1) : '';
         if (jsonStr.endsWith(fence)) { jsonStr = jsonStr.substring(0, jsonStr.length - 3); }
     }
