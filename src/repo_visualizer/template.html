@@ -1100,10 +1100,9 @@ function initIndices() {
         // inputs/outputs: arrays -> comma-joined string
         if (Array.isArray(n.inputs)) n.inputs = n.inputs.join(', ');
         if (Array.isArray(n.outputs)) n.outputs = n.outputs.join(', ');
-        // panel: assign right-panel key for utilities/visualization/config/data groups
+        // panel: mark nodes in any panel group
         if (!n.panel && RIGHT_PANEL_GROUPS.has(n.group)) {
-            if (n.group === 'utilities' || n.group === 'visualization') n.panel = 'utilities';
-            else n.panel = n.group; // 'config' or 'data'
+            n.panel = n.group;
         }
     });
     // 3. Normalize edge type -> style
@@ -2146,18 +2145,14 @@ function buildNodeCard(n) {
 function renderRightPanel() {
     const container = document.getElementById('panel-content');
     container.innerHTML = '';
-    const sections = [
-        { title: 'Utilities', key: 'utilities' },
-        { title: 'Config Files', key: 'config' },
-        { title: 'Data Files', key: 'data' }
-    ];
-    sections.forEach(sec => {
-        const nodes = (DATA.nodes || []).filter(n => n.panel === sec.key && state.visibleGroups.has(n.group));
+    const panelGroups = (DATA.groups || []).filter(g => g.panel);
+    panelGroups.forEach(grp => {
+        const nodes = (DATA.nodes || []).filter(n => n.group === grp.id && state.visibleGroups.has(n.group));
         const secDiv = document.createElement('div');
         secDiv.className = 'rpanel-section';
         const hdr = document.createElement('div');
         hdr.className = 'rpanel-header';
-        hdr.innerHTML = `<span class="rpanel-arrow">\u25BC</span> ${escHtml(sec.title)} (${nodes.length})`;
+        hdr.innerHTML = `<span class="rpanel-arrow">\u25BC</span> ${escHtml(grp.label)} (${nodes.length})`;
         hdr.addEventListener('click', () => {
             hdr.classList.toggle('collapsed');
         });
