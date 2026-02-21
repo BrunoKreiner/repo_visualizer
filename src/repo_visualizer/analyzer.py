@@ -147,6 +147,22 @@ def analyze_file(file_path: Path) -> Dict[str, Any]:
                 'bases': [ast.unparse(b) if hasattr(ast, 'unparse') else '' for b in node.bases],
             })
 
+    # Content classification signals for panel auto-detection
+    n_module_constants = 0
+    n_dataclass_or_typedef = 0
+    for child in ast.iter_child_nodes(tree):
+        if isinstance(child, (ast.Assign, ast.AugAssign, ast.AnnAssign)):
+            n_module_constants += 1
+        elif isinstance(child, ast.ClassDef):
+            _up = ast.unparse if hasattr(ast, 'unparse') else (lambda x: '')
+            is_dc = any('dataclass' in _up(d) for d in child.decorator_list)
+            is_td = any('TypedDict' in _up(b) or 'NamedTuple' in _up(b)
+                        for b in child.bases)
+            if is_dc or is_td:
+                n_dataclass_or_typedef += 1
+    result['module_constants'] = n_module_constants
+    result['dataclass_or_typedef_count'] = n_dataclass_or_typedef
+
     return result
 
 

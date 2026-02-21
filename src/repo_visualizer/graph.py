@@ -16,6 +16,136 @@ PANEL_DIR_NAMES = {
 TEST_DIR_NAMES = {'tests', 'test', 'testing', 'spec', 'specs'}
 UTIL_DIR_NAMES = {'utils', 'utilities', 'helpers', 'common', 'shared', 'lib'}
 
+# Fine-grained classification: match any path component or filename stem
+_UTIL_PATH_NAMES = frozenset({
+    'utils', 'utilities', 'helpers', 'common', 'shared', 'lib', 'tools',
+})
+_CONFIG_PATH_NAMES = frozenset({
+    'config', 'configs', 'configuration', 'settings',
+})
+_DATA_PATH_NAMES = frozenset({
+    'data', 'fixtures', 'static', 'assets', 'templates', 'resources', 'schemas',
+})
+_UTIL_FILE_STEMS = frozenset({
+    'utils', 'util', 'helpers', 'helper', 'common', 'shared', 'tools',
+    'misc', 'base', 'exceptions',
+})
+_CONFIG_FILE_STEMS = frozenset({
+    'config', 'settings', 'constants', 'defaults', 'conf',
+})
+_DATA_FILE_STEMS = frozenset({
+    'types', 'schemas', 'schema', 'enums',
+})
+_PANEL_VIRTUAL = {
+    'utility': {'id': '_panel_utility', 'label': 'Utilities'},
+    'config':  {'id': '_panel_config',  'label': 'Configuration'},
+    'data':    {'id': '_panel_data',    'label': 'Data & Types'},
+}
+
+
+
+def _classify_panel_nodes(
+    nodes: list, edges: list, file_analyses: Dict[str, dict], groups: list
+) -> None:
+    """Auto-classify nodes into right-panel groups using path, graph, and content signals."""
+    panel_gids = {g['id'] for g in groups if g.get('panel')}
+
+    # Coupling metrics
+    ca: Dict[str, int] = defaultdict(int)
+    ce: Dict[str, int] = defaultdict(int)
+    for e in edges:
+        ce[e['from']] += 1
+        ca[e['to']] += 1
+
+    ca_vals = sorted(ca.get(n['id'], 0) for n in nodes)
+    median_ca = ca_vals[len(ca_vals) // 2] if ca_vals else 0
+
+    classified: Dict[str, str] = {}
+
+    for node in nodes:
+        if node['group'] in panel_gids:
+            continue
+        fp = node.get('file_path', '')
+        if not fp:
+            continue
+        path = Path(fp)
+        stem = path.stem.lower()
+        if stem.startswith('__'):
+            continue
+
+        scores = {'utility': 0, 'config': 0, 'data': 0}
+
+        # Path component signals
+        for part in path.parts[:-1]:
+            pl = part.lower()
+            if pl in _UTIL_PATH_NAMES:
+                scores['utility'] += 3
+            elif pl in _CONFIG_PATH_NAMES:
+                scores['config'] += 3
+            elif pl in _DATA_PATH_NAMES:
+                scores['data'] += 3
+
+        # Filename stem signals (strong: file literally named config.py, utils.py, etc.)
+        if stem in _UTIL_FILE_STEMS:
+            scores['utility'] += 3
+        elif stem in _CONFIG_FILE_STEMS:
+            scores['config'] += 3
+        elif stem in _DATA_FILE_STEMS:
+            scores['data'] += 3
+
+        # Graph signals: high afferent + low efferent = utility
+        node_ca = ca.get(node['id'], 0)
+        node_ce = ce.get(node['id'], 0)
+        if node_ca >= max(median_ca * 2, 3) and node_ce <= 1:
+            scores['utility'] += 2
+
+        # Content signals from AST analysis
+        analysis = file_analyses.get(fp)
+        if analysis:
+            nc = analysis.get('module_constants', 0)
+            nf = len(analysis.get('functions', []))
+            ncls = len(analysis.get('classes', []))
+            ndt = analysis.get('dataclass_or_typedef_count', 0)
+            total = nc + nf + ncls
+            if total > 0:
+                if nc / total > 0.6 and ncls == 0:
+                    scores['config'] += 2
+                if ndt > 0 and ncls == ndt and nf <= 1:
+                    scores['data'] += 1
+                    scores['config'] += 1
+                if nf > 0 and ncls == 0:
+                    max_loc = max(
+                        (f.get('loc', 0) for f in analysis.get('functions', [])),
+                        default=0,
+                    )
+                    if max_loc <= 15:
+                        scores['utility'] += 1
+
+        best = max(scores, key=scores.get)
+        if scores[best] >= 3:
+            classified[node['id']] = best
+
+    if not classified:
+        return
+
+    color_idx = len(groups)
+    for cat in ('utility', 'config', 'data'):
+        ids = [nid for nid, c in classified.items() if c == cat]
+        if not ids:
+            continue
+        vg = _PANEL_VIRTUAL[cat]
+        groups.append({
+            'id': vg['id'],
+            'label': vg['label'],
+            'color': GROUP_PALETTE[color_idx % len(GROUP_PALETTE)],
+            'panel': True,
+        })
+        color_idx += 1
+        id_set = set(ids)
+        for node in nodes:
+            if node['id'] in id_set:
+                node['group'] = vg['id']
+
 
 def build_architecture_data(config: VisualizerConfig, py_files: List[Path]) -> dict:
     project_root = config.project_root.resolve()
@@ -41,6 +171,7 @@ def build_architecture_data(config: VisualizerConfig, py_files: List[Path]) -> d
         nodes = nodes[:config.max_nodes]
 
     edges = _create_edges(file_imports, nodes, project_root)
+    _classify_panel_nodes(nodes, edges, file_analyses, groups)
     tier_map = _assign_tiers(nodes, edges, entry_points)
     for node in nodes:
         node['tier'] = tier_map.get(node['id'], 0)
