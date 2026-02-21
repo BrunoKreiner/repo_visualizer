@@ -1892,7 +1892,7 @@ function renderTiers() {
             DATA.tiers.forEach((t, i) => { tierNames[i] = t.label; });
         }
     for (let tier = 0; tier < (DATA.tiers ? DATA.tiers.length : 6); tier++) {
-        const nodes = (DATA.nodes || []).filter(n => n.tier === tier && state.visibleGroups.has(n.group));
+        const nodes = (DATA.nodes || []).filter(n => n.tier === tier && state.visibleGroups.has(n.group) && !n.panel);
         if (!nodes.length) continue;
         const tierDiv = document.createElement('div');
         tierDiv.className = 'tier';
