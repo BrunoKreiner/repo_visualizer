@@ -42,8 +42,8 @@ _SUPPORT_PATH_NAMES = frozenset({
     'archive', 'archived', 'deprecated', 'old', 'backup', 'legacy',
     'obsolete', 'backlog', 'examples', 'samples', 'demos', 'example',
     'visualizations', 'visualization', 'plots', 'charts', 'dashboards',
-    'post_processing', 'preprocessing', 'migrations', 'benchmarks',
-    'perf', 'performance', 'analysis',
+    'post_processing', 'pre_processing', 'pre-processing', 'preprocessing',
+    'migrations', 'benchmarks', 'perf', 'performance', 'analysis',
 })
 _PANEL_VIRTUAL = {
     'utility':  {'id': '_panel_utility',  'label': 'Utilities'},
@@ -104,6 +104,12 @@ def _classify_panel_nodes(
             scores['config'] += 3
         elif stem in _DATA_FILE_STEMS:
             scores['data'] += 3
+
+        # Substring signals: detect 'deprecated' anywhere in path or filename
+        if 'deprecated' in stem:
+            scores['support'] += 3
+        elif any('deprecated' in part.lower() for part in path.parts[:-1]):
+            scores['support'] += 3
 
         # Graph signals: high afferent + low efferent = utility
         node_ca = ca.get(node['id'], 0)
