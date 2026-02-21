@@ -820,6 +820,17 @@ html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(-
     transition: all var(--transition-fast); white-space: nowrap;
 }
 #ai-desc-btn:hover { border-color: var(--accent-cyan); color: var(--accent-cyan); }
+#ai-sort-modal-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,.55);
+    z-index: 9000; display: none; align-items: center; justify-content: center;
+}
+#ai-sort-modal-backdrop.visible { display: flex; }
+#ai-sort-modal {
+    background: var(--bg-card); border-radius: 12px; padding: 28px 32px;
+    max-width: 720px; width: 90vw; max-height: 82vh; overflow-y: auto;
+    box-shadow: 0 12px 40px rgba(0,0,0,.4); color: var(--text-primary);
+}
+
 </style>
 </head>
 <body>
@@ -840,6 +851,7 @@ html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(-
     </div>
     <button id="smells-toggle">Refactoring</button>
     <button id="ai-desc-btn" title="Get AI descriptions for all nodes">AI Descriptions</button>
+            <button id="ai-sort-btn" title="AI-powered tier and panel sorting">AI Layout</button>
     <div class="header-spacer"></div>
 </div>
 <!-- ===== BODY ===== -->
@@ -973,6 +985,35 @@ html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(-
     </div>
 </div>
 
+
+<!-- AI LAYOUT MODAL -->
+<div id="ai-sort-modal-backdrop">
+<div id="ai-sort-modal" role="dialog" aria-modal="true">
+    <h2 style="margin:0 0 8px">&#129302; AI Layout</h2>
+    <div class="modal-subtitle" style="color:var(--text-muted);margin-bottom:16px;font-size:13px;">
+        Copy the prompt below, paste into any AI assistant, then paste the JSON response back to re-sort tiers and panel categories.
+    </div>
+    <div class="ai-desc-step">
+        <div class="ai-desc-step-label">Step 1 &mdash; Copy prompt</div>
+        <div class="ai-desc-count" id="ai-sort-count"></div>
+        <div class="ai-desc-prompt-box" id="ai-sort-prompt-box" style="max-height:260px;overflow-y:auto;"></div>
+        <div class="ai-desc-actions">
+            <button class="ai-desc-btn primary" id="ai-sort-copy-btn">Copy to clipboard</button>
+            <span class="ai-desc-status" id="ai-sort-copy-status"></span>
+        </div>
+    </div>
+    <div class="ai-desc-step">
+        <div class="ai-desc-step-label">Step 2 &mdash; Paste AI response</div>
+        <textarea class="ai-desc-textarea" id="ai-sort-paste" rows="8"
+            placeholder="Paste the JSON array here..."></textarea>
+        <div class="ai-desc-actions">
+            <button class="ai-desc-btn primary" id="ai-sort-apply-btn">Apply layout</button>
+            <button class="ai-desc-btn danger" id="ai-sort-close-btn">Close</button>
+            <span class="ai-desc-status" id="ai-sort-apply-status"></span>
+        </div>
+    </div>
+</div>
+</div>
 
 <!-- AI DESCRIPTIONS MODAL -->
 <div id="ai-desc-modal-backdrop">
@@ -2691,9 +2732,168 @@ function initAiDescModal() {
     }, true);
 }
 
+/* ===== AI LAYOUT (sort tiers + panel) ===== */
+function buildSortPrompt() {
+    var nodes = DATA.nodes || [];
+    var edges = DATA.edges || [];
+    var title = document.title || 'Python Project';
+    var imps = {}, impBy = {};
+    edges.forEach(function(e) {
+        if (!imps[e.from]) imps[e.from] = [];
+        imps[e.from].push(e.to);
+        if (!impBy[e.to]) impBy[e.to] = [];
+        impBy[e.to].push(e.from);
+    });
+    var NL = String.fromCharCode(10);
+    var L = [];
+    L.push('You are an expert software architect. Analyze this Python project and assign each node to:');
+    L.push('1. A TIER (vertical layer, 0 = top) based on dependency depth');
+    L.push('2. A PANEL category (null = main diagram, or a sidebar category)');
+    L.push('');
+    L.push('PROJECT: ' + title);
+    L.push('NODES: ' + nodes.length + '  EDGES: ' + edges.length);
+    L.push('');
+    L.push('NODE LIST (id | type | file | imports/imported_by):');
+    nodes.forEach(function(n) {
+        var imp = (imps[n.id] || []).join(', ') || 'none';
+        var iby = (impBy[n.id] || []).join(', ') || 'none';
+        L.push('');
+        L.push(n.id + ' [' + (n.type || 'module') + '] ' + (n.file_path || ''));
+        L.push('  imports: ' + imp);
+        L.push('  imported_by: ' + iby);
+    });
+    L.push('');
+    L.push('TIER GUIDELINES (0 = top of diagram):');
+    L.push('0 = Entry points (scripts with __main__, CLI commands, servers)');
+    L.push('1 = Orchestration (directly called by entry points)');
+    L.push('2 = Core logic (services, evaluators, handlers, processors)');
+    L.push('3 = Domain (classes, conversation objects, retrievers, API clients)');
+    L.push('4 = Abstractions (ABC, Protocol, base classes)');
+    L.push('5+ = Infrastructure (deep shared utilities, foundational code)');
+    L.push('');
+    L.push('Rule: if A imports B, prefer tier(A) < tier(B).');
+    L.push('Account for factory/config patterns where imports happen dynamically at runtime.');
+    L.push('');
+    L.push('PANEL GUIDELINES (sidebar categories for secondary code):');
+    L.push('null = Core architecture (stays in main diagram)');
+    L.push('"utility" = Helper/shared modules used across the project');
+    L.push('"config" = Configuration, settings, constants');
+    L.push('"data" = Type definitions, schemas, enums');
+    L.push('"support" = Deprecated, archived, visualization, analysis, migration, one-off scripts');
+    L.push('');
+    L.push('RESPONSE FORMAT - respond with ONLY a JSON array, no explanation:');
+    L.push('[{"id": "node_id", "tier": 0, "panel": null}, ...]');
+    L.push('');
+    L.push('Include ALL ' + nodes.length + ' nodes. Use null (not "null") for panel when node stays in main diagram.');
+    return L.join(NL);
+}
+
+function openSortModal() {
+    var prompt = buildSortPrompt();
+    var box = document.getElementById('ai-sort-prompt-box');
+    box.textContent = prompt;
+    var nodes = DATA.nodes || [];
+    var edges = DATA.edges || [];
+    document.getElementById('ai-sort-count').textContent = nodes.length + ' nodes, ' + edges.length + ' edges';
+    document.getElementById('ai-sort-paste').value = '';
+    document.getElementById('ai-sort-apply-status').textContent = '';
+    document.getElementById('ai-sort-copy-status').textContent = '';
+    document.getElementById('ai-sort-modal-backdrop').classList.add('visible');
+}
+function closeSortModal() {
+    document.getElementById('ai-sort-modal-backdrop').classList.remove('visible');
+}
+function applySortResponse() {
+    var ta = document.getElementById('ai-sort-paste');
+    var st = document.getElementById('ai-sort-apply-status');
+    var raw = ta.value.trim();
+    if (!raw) { st.textContent = 'Paste the JSON first'; st.style.color = 'var(--accent-red,#f44)'; return; }
+    var jsonStr = raw;
+    if (jsonStr.indexOf('```') >= 0) {
+        var m = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
+        if (m) jsonStr = m[1].trim();
+    }
+    var arr;
+    try { arr = JSON.parse(jsonStr); } catch(e) {
+        st.textContent = 'Invalid JSON: ' + e.message; st.style.color = 'var(--accent-red,#f44)'; return;
+    }
+    if (!Array.isArray(arr)) { st.textContent = 'Expected a JSON array'; st.style.color = 'var(--accent-red,#f44)'; return; }
+    var aMap = {};
+    arr.forEach(function(a) { aMap[a.id] = a; });
+    var catCfg = {
+        utility: { id: '_panel_utility', label: 'Utilities' },
+        config:  { id: '_panel_config',  label: 'Configuration' },
+        data:    { id: '_panel_data',    label: 'Data & Types' },
+        support: { id: '_panel_support', label: 'Scripts & Support' }
+    };
+    var palette = ['#3B82F6','#10B981','#F59E0B','#EF4444','#8B5CF6','#EC4899','#06B6D4','#84CC16'];
+    var existG = {};
+    (DATA.groups || []).forEach(function(g) { existG[g.id] = g; });
+    var pMap = {};
+    ['utility','config','data','support'].forEach(function(cat) {
+        var needed = arr.some(function(a) { return a.panel === cat; });
+        if (!needed) return;
+        var cfg = catCfg[cat];
+        if (existG[cfg.id]) {
+            existG[cfg.id].panel = true;
+            pMap[cat] = cfg.id;
+        } else {
+            var ng = { id: cfg.id, label: cfg.label, color: palette[DATA.groups.length % palette.length], panel: true };
+            DATA.groups.push(ng);
+            existG[cfg.id] = ng;
+            pMap[cat] = cfg.id;
+        }
+    });
+    RIGHT_PANEL_GROUPS.clear();
+    (DATA.groups || []).forEach(function(g) { if (g.panel) RIGHT_PANEL_GROUPS.add(g.id); });
+    var tU = 0, pM = 0;
+    (DATA.nodes || []).forEach(function(n) {
+        var a = aMap[n.id]; if (!a) return;
+        if (typeof a.tier === 'number') { n.tier = a.tier; tU++; }
+        if (a.panel && pMap[a.panel] && !RIGHT_PANEL_GROUPS.has(n.group)) {
+            n.group = pMap[a.panel]; n.panel = pMap[a.panel]; pM++;
+        } else if (a.panel && pMap[a.panel] && RIGHT_PANEL_GROUPS.has(n.group)) {
+            n.group = pMap[a.panel]; n.panel = pMap[a.panel];
+        }
+        if (a.panel === null && n.panel) {
+            delete n.panel;
+            var fp = n.file_path || '';
+            var parts = fp.split('/');
+            var origGrp = (parts.length > 1) ? parts[0] : '_root';
+            var grpExists = DATA.groups.some(function(g) { return g.id === origGrp; });
+            n.group = grpExists ? origGrp : '_root';
+        }
+        nodeMap.set(n.id, n);
+    });
+    groupSet.clear();
+    (DATA.nodes || []).forEach(function(n) { if (n.group) groupSet.add(n.group); });
+    groupSet.forEach(function(g) { if (!state.visibleGroups.has(g)) state.visibleGroups.add(g); });
+    nodeTierMap.clear();
+    (DATA.nodes || []).forEach(function(n) { if (n.tier !== undefined) nodeTierMap.set(n.id, n.tier); });
+    renderAll();
+    st.textContent = tU + ' tiers updated, ' + pM + ' moved to panel';
+    st.style.color = 'var(--accent-green,#4f4)';
+}
+function initSortModal() {
+    document.getElementById('ai-sort-copy-btn').addEventListener('click', function() {
+        var box = document.getElementById('ai-sort-prompt-box');
+        navigator.clipboard.writeText(box.textContent).then(function() {
+            document.getElementById('ai-sort-copy-status').textContent = 'Copied!';
+        });
+    });
+    document.getElementById('ai-sort-apply-btn').addEventListener('click', applySortResponse);
+    document.getElementById('ai-sort-close-btn').addEventListener('click', closeSortModal);
+    document.getElementById('ai-sort-modal-backdrop').addEventListener('click', function(e) {
+        if (e.target === this) closeSortModal();
+    });
+    var btn = document.getElementById('ai-sort-btn');
+    if (btn) btn.addEventListener('click', openSortModal);
+}
+
 /* ===== INIT ===== */
 function init() {
     initAiDescModal();
+    initSortModal();
     initIndices();
     initEvents();
     renderAll();
