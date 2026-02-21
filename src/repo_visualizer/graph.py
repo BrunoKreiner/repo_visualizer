@@ -12,6 +12,8 @@ from repo_visualizer.config import VisualizerConfig, GROUP_PALETTE
 PANEL_DIR_NAMES = {
     'config', 'configs', 'configuration', 'settings',
     'data', 'fixtures', 'static', 'assets', 'templates', 'resources',
+    'archive', 'archived', 'deprecated', 'old', 'backup', 'legacy',
+    'obsolete', 'examples', 'samples', 'demos',
 }
 TEST_DIR_NAMES = {'tests', 'test', 'testing', 'spec', 'specs'}
 UTIL_DIR_NAMES = {'utils', 'utilities', 'helpers', 'common', 'shared', 'lib'}
@@ -36,10 +38,18 @@ _CONFIG_FILE_STEMS = frozenset({
 _DATA_FILE_STEMS = frozenset({
     'types', 'schemas', 'schema', 'enums',
 })
+_SUPPORT_PATH_NAMES = frozenset({
+    'archive', 'archived', 'deprecated', 'old', 'backup', 'legacy',
+    'obsolete', 'backlog', 'examples', 'samples', 'demos', 'example',
+    'visualizations', 'visualization', 'plots', 'charts', 'dashboards',
+    'post_processing', 'preprocessing', 'migrations', 'benchmarks',
+    'perf', 'performance', 'analysis',
+})
 _PANEL_VIRTUAL = {
-    'utility': {'id': '_panel_utility', 'label': 'Utilities'},
-    'config':  {'id': '_panel_config',  'label': 'Configuration'},
-    'data':    {'id': '_panel_data',    'label': 'Data & Types'},
+    'utility':  {'id': '_panel_utility',  'label': 'Utilities'},
+    'config':   {'id': '_panel_config',   'label': 'Configuration'},
+    'data':     {'id': '_panel_data',     'label': 'Data & Types'},
+    'support':  {'id': '_panel_support',  'label': 'Scripts & Support'},
 }
 
 
@@ -73,7 +83,7 @@ def _classify_panel_nodes(
         if stem.startswith('__'):
             continue
 
-        scores = {'utility': 0, 'config': 0, 'data': 0}
+        scores = {'utility': 0, 'config': 0, 'data': 0, 'support': 0}
 
         # Path component signals
         for part in path.parts[:-1]:
@@ -84,6 +94,8 @@ def _classify_panel_nodes(
                 scores['config'] += 3
             elif pl in _DATA_PATH_NAMES:
                 scores['data'] += 3
+            elif pl in _SUPPORT_PATH_NAMES:
+                scores['support'] += 3
 
         # Filename stem signals (strong: file literally named config.py, utils.py, etc.)
         if stem in _UTIL_FILE_STEMS:
@@ -129,7 +141,7 @@ def _classify_panel_nodes(
         return
 
     color_idx = len(groups)
-    for cat in ('utility', 'config', 'data'):
+    for cat in ('utility', 'config', 'data', 'support'):
         ids = [nid for nid, c in classified.items() if c == cat]
         if not ids:
             continue
