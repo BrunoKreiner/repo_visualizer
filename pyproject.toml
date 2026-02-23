@@ -28,9 +28,11 @@ classifiers = [
 
 [project.optional-dependencies]
 dev = ["pytest>=7.0", "pytest-cov", "ruff"]
+mcp = ["mcp>=1.0"]
 
 [project.scripts]
 repo-visualizer = "repo_visualizer.cli:main"
+repo-visualizer-mcp = "repo_visualizer.mcp_server:main"
 
 [project.urls]
 Homepage = "https://github.com/BrunoKreiner/repo_visualizer"

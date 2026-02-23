@@ -11,6 +11,8 @@ _PLACEHOLDERS = [
     "__SOURCE_FILES__",
     "__CODE_MAP__",
     "__DIAGRAM_TITLE__",
+    "__README_CONTENT__",
+    "__GITIGNORE_CONTENT__",
 ]
 
 
@@ -26,7 +28,8 @@ def _safe_json_for_html(obj) -> str:
 
 def render_html(data: dict, smells: list, node_metrics: dict,
                 file_tree: dict, source_files: dict, code_map: dict,
-                config: VisualizerConfig) -> str:
+                config: VisualizerConfig, readme_text: str = "",
+                gitignore_text: str = "") -> str:
     template_path = Path(__file__).parent / "template.html"
     template = template_path.read_text(encoding="utf-8")
     title = config.title or config.project_root.resolve().name
@@ -37,6 +40,8 @@ def render_html(data: dict, smells: list, node_metrics: dict,
     html = html.replace("__SOURCE_FILES__", _safe_json_for_html(source_files))
     html = html.replace("__CODE_MAP__", _safe_json_for_html(code_map))
     html = html.replace("__DIAGRAM_TITLE__", _escape_html(title))
+    html = html.replace("__README_CONTENT__", _safe_json_for_html(readme_text))
+    html = html.replace("__GITIGNORE_CONTENT__", _safe_json_for_html(gitignore_text))
     return html
 
 

@@ -295,3 +295,95 @@ def build_code_map(project_root: Path, data: dict) -> Dict[str, dict]:
             })
         result[fp] = file_entry
     return result
+
+
+def _notebook_source(file_path: Path) -> str:
+    """Extract concatenated code cell sources from a .ipynb file."""
+    import json
+    try:
+        nb = json.loads(file_path.read_text(encoding="utf-8", errors="replace"))
+        parts = [
+            "".join(cell.get("source", []))
+            for cell in nb.get("cells", [])
+            if cell.get("cell_type") == "code"
+        ]
+        return chr(10).join(parts)
+    except Exception:
+        return ""
+
+
+def analyze_notebook_file(file_path: Path) -> Dict[str, Any]:
+    """Analyze a Jupyter notebook by concatenating its code cells and running AST analysis."""
+    source = _notebook_source(file_path)
+    if not source.strip():
+        return {}
+    try:
+        tree = ast.parse(source, filename=str(file_path))
+    except Exception:
+        return {}
+    # Reuse the same extraction logic as analyze_file
+    result: Dict[str, Any] = {
+        "functions": [],
+        "classes": [],
+        "total_loc": len(source.splitlines()),
+        "module_constants": 0,
+        "dataclass_or_typedef_count": 0,
+    }
+    for node in ast.iter_child_nodes(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            result["functions"].append({
+                "name": node.name,
+                "sig": reconstruct_signature(node),
+                "cc": _cyclomatic_complexity(node),
+                "loc": _count_lines(node),
+                "params": _param_count(node),
+                "lineno": node.lineno,
+                "end_lineno": getattr(node, "end_lineno", node.lineno),
+            })
+        elif isinstance(node, ast.ClassDef):
+            result["classes"].append({
+                "name": node.name,
+                "type": "class",
+                "methods": [],
+                "fields": [],
+                "loc": _count_lines(node),
+                "method_count": 0,
+                "lcom": 0.0,
+                "lineno": node.lineno,
+                "end_lineno": getattr(node, "end_lineno", node.lineno),
+                "bases": [],
+            })
+        elif isinstance(node, (ast.Assign, ast.AugAssign, ast.AnnAssign)):
+            result["module_constants"] += 1
+    return result
+
+
+def extract_imports_from_notebook(file_path: Path) -> List[ImportInfo]:
+    """Extract imports from a Jupyter notebook's code cells."""
+    source = _notebook_source(file_path)
+    if not source.strip():
+        return []
+    try:
+        tree = ast.parse(source, filename=str(file_path))
+    except Exception:
+        return []
+    imports = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                imports.append(ImportInfo(
+                    module=alias.name,
+                    names=[alias.asname or alias.name.split(".")[-1]],
+                    is_from=False,
+                    level=0,
+                ))
+        elif isinstance(node, ast.ImportFrom):
+            module = node.module or ""
+            names = [alias.name for alias in node.names]
+            imports.append(ImportInfo(
+                module=module,
+                names=names,
+                is_from=True,
+                level=node.level or 0,
+            ))
+    return imports

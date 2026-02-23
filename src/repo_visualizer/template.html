@@ -1072,6 +1072,8 @@ const NODE_METRICS = __NODE_METRICS__;
 const FILE_TREE = __FILE_TREE__;
 const SOURCE_FILES = __SOURCE_FILES__;
 const CODE_MAP = __CODE_MAP__;
+const README = __README_CONTENT__;
+const GITIGNORE = __GITIGNORE_CONTENT__;
 
 /* ===== STATE ===== */
 const state = {
@@ -1096,14 +1098,14 @@ const edgesByTarget = new Map();
 const groupSet = new Set();
 const nodeTierMap = new Map();
 const couplingScores = new Map();
+const RIGHT_PANEL_GROUPS = new Set();
 
 /* ===== INIT INDICES ===== */
 function initIndices() {
     // --- Normalize nodes: bridge ARCHITECTURE_DATA field names to what JS expects ---
     // 1. Assign tier index to each node from DATA.tiers[].nodeIds
-    const RIGHT_PANEL_GROUPS = new Set(
-            (DATA.groups || []).filter(g => g.panel).map(g => g.id)
-        );
+    RIGHT_PANEL_GROUPS.clear();
+    (DATA.groups || []).filter(g => g.panel).forEach(g => RIGHT_PANEL_GROUPS.add(g.id));
     (DATA.tiers || []).forEach((t, idx) => {
         (t.nodeIds || []).forEach(nid => {
             const node = (DATA.nodes || []).find(n => n.id === nid);
@@ -2737,6 +2739,7 @@ function buildSortPrompt() {
     var nodes = DATA.nodes || [];
     var edges = DATA.edges || [];
     var title = document.title || 'Python Project';
+    var NL = String.fromCharCode(10);
     var imps = {}, impBy = {};
     edges.forEach(function(e) {
         if (!imps[e.from]) imps[e.from] = [];
@@ -2744,49 +2747,153 @@ function buildSortPrompt() {
         if (!impBy[e.to]) impBy[e.to] = [];
         impBy[e.to].push(e.from);
     });
-    var NL = String.fromCharCode(10);
-    var L = [];
-    L.push('You are an expert software architect. Analyze this Python project and assign each node to:');
-    L.push('1. A TIER (vertical layer, 0 = top) based on dependency depth');
-    L.push('2. A PANEL category (null = main diagram, or a sidebar category)');
-    L.push('');
-    L.push('PROJECT: ' + title);
-    L.push('NODES: ' + nodes.length + '  EDGES: ' + edges.length);
-    L.push('');
-    L.push('NODE LIST (id | type | file | imports/imported_by):');
+    function insertPath(root, parts) {
+        if (!parts.length) return;
+        var seg = parts[0], rest = parts.slice(1);
+        if (!root[seg]) root[seg] = {};
+        if (rest.length) insertPath(root[seg], rest);
+        else root[seg].__file__ = true;
+    }
+    function renderTree(obj, indent) {
+        var lines = [];
+        var keys = Object.keys(obj).filter(function(k) { return k !== '__file__'; }).sort(function(a, b) {
+            var aIsDir = Object.keys(obj[a]).some(function(k) { return k !== '__file__'; });
+            var bIsDir = Object.keys(obj[b]).some(function(k) { return k !== '__file__'; });
+            if (aIsDir !== bIsDir) return aIsDir ? -1 : 1;
+            return a < b ? -1 : a > b ? 1 : 0;
+        });
+        keys.forEach(function(k) {
+            var childKeys = Object.keys(obj[k]).filter(function(c) { return c !== '__file__'; });
+            if (childKeys.length > 0) {
+                lines.push(indent + k + '/');
+                renderTree(obj[k], indent + '  ').forEach(function(l) { lines.push(l); });
+            } else { lines.push(indent + k); }
+        });
+        return lines;
+    }
+    var treeRoot = {};
     nodes.forEach(function(n) {
-        var imp = (imps[n.id] || []).join(', ') || 'none';
-        var iby = (impBy[n.id] || []).join(', ') || 'none';
-        L.push('');
-        L.push(n.id + ' [' + (n.type || 'module') + '] ' + (n.file_path || ''));
-        L.push('  imports: ' + imp);
-        L.push('  imported_by: ' + iby);
+        var fp = (n.file_path || '').split(String.fromCharCode(92)).join('/');
+        if (fp) insertPath(treeRoot, fp.split('/'));
     });
-    L.push('');
-    L.push('TIER GUIDELINES (0 = top of diagram):');
-    L.push('0 = Entry points (scripts with __main__, CLI commands, servers)');
-    L.push('1 = Orchestration (directly called by entry points)');
-    L.push('2 = Core logic (services, evaluators, handlers, processors)');
-    L.push('3 = Domain (classes, conversation objects, retrievers, API clients)');
-    L.push('4 = Abstractions (ABC, Protocol, base classes)');
-    L.push('5+ = Infrastructure (deep shared utilities, foundational code)');
-    L.push('');
-    L.push('Rule: if A imports B, prefer tier(A) < tier(B).');
-    L.push('Account for factory/config patterns where imports happen dynamically at runtime.');
-    L.push('');
-    L.push('PANEL GUIDELINES (sidebar categories for secondary code):');
-    L.push('null = Core architecture (stays in main diagram)');
-    L.push('"utility" = Helper/shared modules used across the project');
-    L.push('"config" = Configuration, settings, constants');
-    L.push('"data" = Type definitions, schemas, enums');
-    L.push('"support" = Deprecated, archived, visualization, analysis, migration, one-off scripts');
-    L.push('');
-    L.push('RESPONSE FORMAT - respond with ONLY a JSON array, no explanation:');
+    function autoClassifyNode(n) {
+        var fp = '/' + (n.file_path || '').toLowerCase().split(String.fromCharCode(92)).join('/');
+        var base = fp.split('/').pop();
+        if (fp.indexOf('/deprecated/') >= 0 || fp.indexOf('/archive/') >= 0 ||
+            fp.indexOf('_backup') >= 0 || fp.indexOf('_legacy') >= 0 ||
+            base.indexOf('_deprecated') >= 0 || base.indexOf('deprecated_') >= 0) return 'deprecated';
+        if (fp.indexOf('/tests/') >= 0 || fp.indexOf('/test/') >= 0 ||
+            base.startsWith('test_') || base.endsWith('_test.py')) return 'tests';
+        if (fp.indexOf('/scripts/analysis/') >= 0 || fp.indexOf('/scripts/visualiz') >= 0 ||
+            fp.indexOf('/scripts/post_process') >= 0 ||
+            fp.indexOf('/notebooks/') >= 0 || fp.indexOf('/notebook/') >= 0 ||
+            fp.indexOf('/examples/') >= 0 || fp.indexOf('/example/') >= 0 ||
+            fp.indexOf('/migrations/') >= 0 ||
+            base.startsWith('prepare_') || base.startsWith('migrate_') ||
+            base.startsWith('cleanup_') || base.startsWith('generate_') ||
+            base.endsWith('.ipynb')) return 'scripts';
+        if (base.endsWith('_utils.py') || base.endsWith('_helper.py') ||
+            base.startsWith('retry_') || base.indexOf('_logging') >= 0) return 'utility';
+        if (base === 'config.py' || base === 'settings.py' || base === 'constants.py' ||
+            fp.indexOf('/config/') >= 0) return 'config';
+        if (fp.indexOf('/data/') >= 0 || fp.indexOf('/docs/') >= 0 ||
+            fp.indexOf('/documentation/') >= 0 || fp.indexOf('/fixtures/') >= 0) return 'data';
+        return null;
+    }
+    var preClassified = {};
+    var ambiguousNodes = [];
+    nodes.forEach(function(n) {
+        var cat = autoClassifyNode(n);
+        if (cat !== null) preClassified[n.id] = cat;
+        else ambiguousNodes.push(n);
+    });
+    window._preClassified = preClassified;
+    var nodeLines = [];
+    ambiguousNodes.forEach(function(n) {
+        var imp = (imps[n.id] || []).join(',') || 'none';
+        var iby = (impBy[n.id] || []).join(',') || 'none';
+        var line = n.id + ' [' + (n.type || 'module') + '] ' + (n.file_path || '');
+        if (imp !== 'none') line += '  imports:' + imp;
+        if (iby !== 'none') line += '  used_by:' + iby;
+        nodeLines.push(line);
+    });
+    function isNonCore(fp) {
+        var f = (fp || '').toLowerCase().split(String.fromCharCode(92)).join('/');
+        var base = f.split('/').pop();
+        return f.indexOf('/tests/') >= 0 || f.indexOf('/test/') >= 0 ||
+               base.startsWith('test_') || base.endsWith('_test.py') ||
+               f.indexOf('/scripts/') >= 0;
+    }
+    var chains = [];
+    nodes.filter(function(n) {
+        return !(impBy[n.id] && impBy[n.id].length) && !isNonCore(n.file_path);
+    }).forEach(function(en) {
+        var best = [en.id]; var q = [[en.id]];
+        while (q.length) {
+            var path = q.shift(); if (path.length >= 4) continue;
+            var nexts = imps[path[path.length - 1]] || [];
+            if (!nexts.length && path.length > best.length) best = path;
+            nexts.forEach(function(nx) {
+                if (path.indexOf(nx) < 0) { var np = path.concat(nx); if (np.length > best.length) best = np; q.push(np); }
+            });
+        }
+        if (best.length >= 2) chains.push(best);
+    });
+    chains.sort(function(a, b) { return b.length - a.length; });
+    var topChains = chains.slice(0, 3);
+    var L = [];
+    L.push('You are a software architecture layout engine for: ' + title);
+    if (typeof README === 'string' && README.length > 10) {
+        var rm = README.substring(0, 400);
+        var lp = rm.lastIndexOf('.'); if (lp > 150) rm = rm.substring(0, lp + 1);
+        L.push(''); L.push('PROJECT OVERVIEW: ' + rm);
+    }
+    L.push(''); L.push('=== DIRECTORY TREE ===');
+    renderTree(treeRoot, '').forEach(function(l) { L.push(l); });
+    if (typeof GITIGNORE === 'string' && GITIGNORE.length > 5) {
+        L.push(''); L.push('=== .GITIGNORE (paths excluded from diagram — use for context) ===');
+        L.push(GITIGNORE.substring(0, 800));
+    }
+    L.push(''); L.push('=== CLASSIFICATION RULES ===');
+    L.push('Assign each node a panel category based on its path and filename:');
+    L.push('"tests"      -> path has /tests/ or /test/, filename test_*.py or *_test.py');
+    L.push('"utility"    -> shared helpers: *_utils.py, retry_*, *_logging*, *_helper*');
+    L.push('"config"     -> config/settings/constants files or directories');
+    L.push('"data"       -> pure data structures: schemas, enums, type definitions');
+    L.push('"deprecated" -> path contains deprecated/, archive/, _backup_, _legacy_, or filename has _DEPRECATED');
+    L.push('"scripts"    -> standalone: scripts/analysis/, scripts/visualiz*, post_process*,');
+    L.push('               or filenames: prepare_*, migrate_*, cleanup_*, setup_*');
+    L.push('null         -> MAIN DIAGRAM. Keep all production code in the import chain.');
+    L.push('               When in doubt, use null.');
+    L.push(''); L.push('=== TIER RULES (0 = top) ===');
+    L.push('0 = Primary entry points ONLY. NEVER tests. NEVER scripts-panel nodes.');
+    L.push('1 = Runners/orchestration   2 = Core logic   3 = Domain support');
+    L.push('4 = Abstractions (ABC, base)   5+ = Infrastructure (utils, adapters)');
+    L.push('Rule: if A imports B, tier(A) < tier(B). Panel nodes need a tier too.');
+    L.push(''); L.push('=== YOUR TASK ===');
+    L.push('Step 1: Scan the directory tree. Classify every node into a panel.');
+    L.push('Step 2: Use the dependency data below to assign tiers.');
+    var preKeys = Object.keys(preClassified);
+    if (preKeys.length > 0) {
+        var preGroups = {};
+        preKeys.forEach(function(pid) { var pc = preClassified[pid]; preGroups[pc] = (preGroups[pc] || 0) + 1; });
+        var preSummary = Object.keys(preGroups).map(function(pc) { return preGroups[pc] + ' ' + pc; }).join(', ');
+        L.push(''); L.push('=== AUTO-CLASSIFIED (' + preKeys.length + ' nodes — omit from response) ===');
+        L.push(preSummary);
+    }
+    L.push(''); L.push('=== NODE LIST (' + ambiguousNodes.length + ' nodes) ===');
+    nodeLines.forEach(function(l) { L.push(l); });
+    if (topChains.length) {
+        L.push(''); L.push('=== KEY DEPENDENCY CHAINS ===');
+        topChains.forEach(function(c) { L.push(c.join(' -> ')); });
+    }
+    L.push(''); L.push('=== RESPONSE FORMAT ===');
+    L.push('JSON array only, no explanation:');
     L.push('[{"id": "node_id", "tier": 0, "panel": null}, ...]');
-    L.push('');
-    L.push('Include ALL ' + nodes.length + ' nodes. Use null (not "null") for panel when node stays in main diagram.');
+    L.push('ONLY the ' + ambiguousNodes.length + ' listed nodes. null (not "null") for main diagram.');
     return L.join(NL);
 }
+
 
 function openSortModal() {
     var prompt = buildSortPrompt();
@@ -2820,28 +2927,30 @@ function applySortResponse() {
     if (!Array.isArray(arr)) { st.textContent = 'Expected a JSON array'; st.style.color = 'var(--accent-red,#f44)'; return; }
     var aMap = {};
     arr.forEach(function(a) { aMap[a.id] = a; });
-    var catCfg = {
-        utility: { id: '_panel_utility', label: 'Utilities' },
-        config:  { id: '_panel_config',  label: 'Configuration' },
-        data:    { id: '_panel_data',    label: 'Data & Types' },
-        support: { id: '_panel_support', label: 'Scripts & Support' }
+    var preC = window._preClassified || {};
+    var knownLabels = {
+        utility: 'Utilities', config: 'Configuration', data: 'Data & Types',
+        scripts: 'Scripts', deprecated: 'Deprecated', tests: 'Tests',
+        support: 'Scripts & Support'
     };
     var palette = ['#3B82F6','#10B981','#F59E0B','#EF4444','#8B5CF6','#EC4899','#06B6D4','#84CC16'];
     var existG = {};
     (DATA.groups || []).forEach(function(g) { existG[g.id] = g; });
     var pMap = {};
-    ['utility','config','data','support'].forEach(function(cat) {
-        var needed = arr.some(function(a) { return a.panel === cat; });
-        if (!needed) return;
-        var cfg = catCfg[cat];
-        if (existG[cfg.id]) {
-            existG[cfg.id].panel = true;
-            pMap[cat] = cfg.id;
+    var panelCats = new Set();
+    arr.forEach(function(a) { if (a.panel && a.panel !== null) panelCats.add(a.panel); });
+    Object.keys(preC).forEach(function(id) { if (preC[id]) panelCats.add(preC[id]); });
+    panelCats.forEach(function(cat) {
+        var gid = '_panel_' + cat;
+        var label = knownLabels[cat] || cat.charAt(0).toUpperCase() + cat.slice(1).replace(/_/g, ' ');
+        if (existG[gid]) {
+            existG[gid].panel = true;
+            pMap[cat] = gid;
         } else {
-            var ng = { id: cfg.id, label: cfg.label, color: palette[DATA.groups.length % palette.length], panel: true };
+            var ng = { id: gid, label: label, color: palette[DATA.groups.length % palette.length], panel: true };
             DATA.groups.push(ng);
-            existG[cfg.id] = ng;
-            pMap[cat] = cfg.id;
+            existG[gid] = ng;
+            pMap[cat] = gid;
         }
     });
     RIGHT_PANEL_GROUPS.clear();
@@ -2865,14 +2974,32 @@ function applySortResponse() {
         }
         nodeMap.set(n.id, n);
     });
+    var defaultTiers = {tests: 9, scripts: 9, deprecated: 9, utility: 7, config: 6, data: 6};
+    var pCnt = 0;
+    (DATA.nodes || []).forEach(function(n) {
+        var cat = preC[n.id];
+        if (!cat) return;
+        if (pMap[cat]) { n.group = pMap[cat]; n.panel = pMap[cat]; pCnt++; }
+        if (!aMap[n.id]) n.tier = defaultTiers[cat] !== undefined ? defaultTiers[cat] : 8;
+        nodeMap.set(n.id, n);
+    });
     groupSet.clear();
     (DATA.nodes || []).forEach(function(n) { if (n.group) groupSet.add(n.group); });
     groupSet.forEach(function(g) { if (!state.visibleGroups.has(g)) state.visibleGroups.add(g); });
     nodeTierMap.clear();
     (DATA.nodes || []).forEach(function(n) { if (n.tier !== undefined) nodeTierMap.set(n.id, n.tier); });
     renderAll();
-    st.textContent = tU + ' tiers updated, ' + pM + ' moved to panel';
-    st.style.color = 'var(--accent-green,#4f4)';
+    var missing = [];
+    (DATA.nodes || []).forEach(function(n) { if (!aMap[n.id] && !preC[n.id]) missing.push(n.id); });
+    var msg = tU + ' tiers updated, ' + pM + ' LLM-moved, ' + pCnt + ' auto-classified';
+    if (missing.length > 0) {
+        msg += '. WARNING: ' + missing.length + ' nodes not in response (kept as-is): ' + missing.slice(0, 5).join(', ');
+        if (missing.length > 5) msg += '...';
+        st.style.color = 'var(--accent-yellow,#fa0)';
+    } else {
+        st.style.color = 'var(--accent-green,#4f4)';
+    }
+    st.textContent = msg;
 }
 function initSortModal() {
     document.getElementById('ai-sort-copy-btn').addEventListener('click', function() {

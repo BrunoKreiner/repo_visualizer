@@ -1,22 +1,69 @@
 from collections import defaultdict
 from pathlib import Path
-from typing import Dict, List, Set
+from typing import Dict, List, Set, Tuple
 
 from repo_visualizer.config import VisualizerConfig
 
 
+def _load_gitignore(root: Path) -> Tuple[List[str], str]:
+    gi = root / ".gitignore"
+    if not gi.exists():
+        return [], ""
+    try:
+        text = gi.read_text(encoding="utf-8", errors="replace")
+    except Exception:
+        return [], ""
+    patterns = [l.strip() for l in text.splitlines()
+                if l.strip() and not l.strip().startswith("#")]
+    return patterns, text[:3000]
+
+
+def _is_gitignored(rel: str, patterns: List[str]) -> bool:
+    import fnmatch
+    rel_fwd = rel.replace("\\", "/")
+    parts = rel_fwd.split("/")
+    for raw in patterns:
+        p = raw.rstrip("/")
+        if not p:
+            continue
+        if fnmatch.fnmatch(parts[0], p):
+            return True
+        if fnmatch.fnmatch(rel_fwd, p):
+            return True
+        if fnmatch.fnmatch(parts[-1], p):
+            return True
+    return False
+
+
+def read_gitignore_text(root: Path) -> str:
+    _, text = _load_gitignore(root)
+    return text
+
+
 def scan_python_files(config: VisualizerConfig) -> List[Path]:
     root = config.project_root.resolve()
+    patterns, _ = _load_gitignore(root)
     py_files: List[Path] = []
-    _scan_dir(root, root, py_files, config)
+    _scan_dir(root, root, py_files, config, gitignore_patterns=patterns)
     return py_files
 
 
+def scan_notebook_files(config: VisualizerConfig) -> List[Path]:
+    root = config.project_root.resolve()
+    patterns, _ = _load_gitignore(root)
+    nb_files: List[Path] = []
+    _scan_dir(root, root, nb_files, config, gitignore_patterns=patterns, extension=".ipynb")
+    return nb_files
+
+
 def _scan_dir(directory: Path, root: Path, result: List[Path],
-              config: VisualizerConfig, depth: int = 0) -> None:
+              config: VisualizerConfig, depth: int = 0,
+              gitignore_patterns: List[str] = None,
+              extension: str = ".py") -> None:
+    if gitignore_patterns is None:
+        gitignore_patterns = []
     if depth > 50:
         return
-    # Skip symbolic links that point outside the root (prevent traversal)
     try:
         resolved = directory.resolve()
         resolved.relative_to(root.resolve())
@@ -29,25 +76,33 @@ def _scan_dir(directory: Path, root: Path, result: List[Path],
         return
     for entry in entries:
         name = entry.name
-        if name.startswith('.') and name not in ('.env.example',):
+        if name.startswith(".") and name not in (".env.example",):
+            continue
+        try:
+            rel = str(entry.relative_to(root))
+        except ValueError:
+            continue
+        if gitignore_patterns and _is_gitignored(rel, gitignore_patterns):
             continue
         if entry.is_dir():
             if name in config.excluded_dirs:
                 continue
             if any(name.startswith(p) for p in config.excluded_prefixes):
                 continue
-            _scan_dir(entry, root, result, config, depth + 1)
-        elif entry.is_file() and entry.suffix == '.py':
+            _scan_dir(entry, root, result, config, depth + 1,
+                      gitignore_patterns=gitignore_patterns, extension=extension)
+        elif entry.is_file() and entry.suffix == extension:
             result.append(entry)
 
 
 def scan_directory_tree(config: VisualizerConfig, data: dict) -> dict:
     root = config.project_root.resolve()
+    patterns, _ = _load_gitignore(root)
     file_to_nodes: Dict[str, List[str]] = defaultdict(list)
-    for n in data.get('nodes', []):
-        fp = n.get('file_path', '')
+    for n in data.get("nodes", []):
+        fp = n.get("file_path", "")
         if fp:
-            file_to_nodes[fp].append(n['id'])
+            file_to_nodes[fp].append(n["id"])
 
     def _walk(directory: Path, rel_prefix: str, depth: int = 0) -> dict:
         children = []
@@ -60,16 +115,18 @@ def scan_directory_tree(config: VisualizerConfig, data: dict) -> dict:
             return {"name": directory.name, "type": "dir", "children": []}
         for entry in entries:
             name = entry.name
-            if name.startswith('.') and name not in ('.env.example',):
+            if name.startswith(".") and name not in (".env.example",):
                 continue
             rel_path = f"{rel_prefix}/{name}" if rel_prefix else name
+            if patterns and _is_gitignored(rel_path, patterns):
+                continue
             if entry.is_dir():
                 if name in config.excluded_dirs:
                     continue
                 if any(name.startswith(p) for p in config.excluded_prefixes):
                     continue
                 child = _walk(entry, rel_path, depth + 1)
-                if child['children']:
+                if child["children"]:
                     children.append(child)
             elif entry.is_file():
                 suffix = entry.suffix.lower()
@@ -94,7 +151,7 @@ def read_source_files(config: VisualizerConfig, nodes: list) -> Dict[str, str]:
     seen: Set[str] = set()
     result: Dict[str, str] = {}
     for n in nodes:
-        fp = n.get('file_path', '')
+        fp = n.get("file_path", "")
         if not fp or fp in seen:
             continue
         seen.add(fp)
@@ -105,7 +162,7 @@ def read_source_files(config: VisualizerConfig, nodes: list) -> Dict[str, str]:
             size = full.stat().st_size
             if size > max_size:
                 continue
-            result[fp] = full.read_text(encoding='utf-8')
+            result[fp] = full.read_text(encoding="utf-8")
         except Exception:
             pass
     return result

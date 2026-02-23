@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 from repo_visualizer.analyzer import (
     analyze_file, extract_imports, detect_entry_point,
     resolve_import_to_file, get_stdlib_modules,
+    analyze_notebook_file, extract_imports_from_notebook,
 )
 from repo_visualizer.config import VisualizerConfig, GROUP_PALETTE
 
@@ -105,10 +106,12 @@ def _classify_panel_nodes(
         elif stem in _DATA_FILE_STEMS:
             scores['data'] += 3
 
-        # Substring signals: detect 'deprecated' anywhere in path or filename
-        if 'deprecated' in stem:
+        # Substring signals: detect support keywords anywhere in path or filename
+        _substr_keywords = ('deprecated', 'backup', 'legacy', 'obsolete')
+        stem_lower = stem.lower() if stem else ''
+        if any(kw in stem_lower for kw in _substr_keywords):
             scores['support'] += 3
-        elif any('deprecated' in part.lower() for part in path.parts[:-1]):
+        elif any(any(kw in part.lower() for kw in _substr_keywords) for part in path.parts[:-1]):
             scores['support'] += 3
 
         # Graph signals: high afferent + low efferent = utility
@@ -174,19 +177,37 @@ def build_architecture_data(config: VisualizerConfig, py_files: List[Path]) -> d
 
     for fp in py_files:
         rel = str(fp.relative_to(project_root)).replace('\\', '/')
-        analysis = analyze_file(fp)
-        if analysis:
-            file_analyses[rel] = analysis
-        file_imports[rel] = extract_imports(fp)
-        if detect_entry_point(fp):
-            entry_points.add(rel)
+        if fp.suffix == ".ipynb":
+            analysis = analyze_notebook_file(fp)
+            if analysis:
+                file_analyses[rel] = analysis
+            file_imports[rel] = extract_imports_from_notebook(fp)
+        else:
+            analysis = analyze_file(fp)
+            if analysis:
+                file_analyses[rel] = analysis
+            file_imports[rel] = extract_imports(fp)
+            if detect_entry_point(fp):
+                entry_points.add(rel)
 
     groups = _create_groups(py_files, project_root)
     group_ids = {g['id'] for g in groups}
     nodes = _create_nodes(file_analyses, py_files, project_root, group_ids, config)
 
     if len(nodes) > config.max_nodes:
-        nodes = nodes[:config.max_nodes]
+        # Truncate panel (peripheral) nodes first, keep core nodes
+        _panel_dirs = PANEL_DIR_NAMES | _SUPPORT_PATH_NAMES
+        core = []
+        panel = []
+        _kw = ('deprecated', 'backup', 'legacy', 'obsolete')
+        for n in nodes:
+            fp_lower = n.get('file_path', '').lower()
+            parts = Path(fp_lower).parts
+            is_panel = (any(p in _panel_dirs for p in parts[:-1])
+                        or any(k in fp_lower for k in _kw))
+            (panel if is_panel else core).append(n)
+        remaining = config.max_nodes - len(core)
+        nodes = core + (panel[:remaining] if remaining > 0 else [])
 
     edges = _create_edges(file_imports, nodes, project_root)
     _classify_panel_nodes(nodes, edges, file_analyses, groups)
@@ -255,6 +276,17 @@ def _create_nodes(file_analyses: Dict[str, dict], py_files: List[Path],
     root = project_root.resolve()
     nodes = []
     node_id_set: Set[str] = set()
+
+    # Sort: non-panel files first so they get the clean (unsuffixed) name
+    # when duplicates exist (e.g. WrapperEvaluator vs archive/WrapperEvaluator)
+    _panel_dirs = PANEL_DIR_NAMES | _SUPPORT_PATH_NAMES
+    def _is_panel_file(fp: Path) -> bool:
+        _kw = ('deprecated', 'backup', 'legacy', 'obsolete')
+        rel = fp.relative_to(root)
+        return (any(part.lower() in _panel_dirs for part in rel.parts[:-1])
+                or any(k in rel.stem.lower() for k in _kw)
+                or any(any(k in part.lower() for k in _kw) for part in rel.parts[:-1]))
+    py_files = sorted(py_files, key=_is_panel_file)
 
     for fp in py_files:
         rel = str(fp.relative_to(root)).replace('\\', '/')

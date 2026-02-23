@@ -8,7 +8,7 @@ from repo_visualizer.analyzer import build_code_map
 from repo_visualizer.config import VisualizerConfig
 from repo_visualizer.graph import build_architecture_data
 from repo_visualizer.renderer import render_html, _count_tree_files
-from repo_visualizer.scanner import scan_python_files, scan_directory_tree, read_source_files
+from repo_visualizer.scanner import scan_python_files, scan_notebook_files, read_gitignore_text, scan_directory_tree, read_source_files
 from repo_visualizer.smells import compute_smells
 from repo_visualizer.summarizer import add_heuristic_descriptions
 
@@ -69,10 +69,11 @@ def generate(config: VisualizerConfig) -> None:
         print("Scanning " + str(root) + "...")
 
     py_files = scan_python_files(config)
+    nb_files = scan_notebook_files(config)
     if config.verbose:
-        print("  Found " + str(len(py_files)) + " Python files")
+        print("  Found " + str(len(py_files)) + " Python files, " + str(len(nb_files)) + " notebooks")
 
-    data = build_architecture_data(config, py_files)
+    data = build_architecture_data(config, py_files + nb_files)
     data = add_heuristic_descriptions(data, config)
 
     if config.output_json:
@@ -91,6 +92,18 @@ def generate(config: VisualizerConfig) -> None:
                     if config.embed_source else {})
     code_map = build_code_map(root, data)
 
+    readme_text = ""
+    for rname in ("README.md", "readme.md", "README.rst", "README.txt"):
+        rpath = root / rname
+        if rpath.exists():
+            try:
+                readme_text = rpath.read_text(encoding="utf-8", errors="replace")[:2000]
+            except Exception:
+                pass
+            break
+
+    gitignore_text = read_gitignore_text(root)
+
     if config.verbose:
         nodes = data.get("nodes", [])
         edges = data.get("edges", [])
@@ -105,7 +118,7 @@ def generate(config: VisualizerConfig) -> None:
         print("  File tree: " + str(tree_count) + " files")
 
     html = render_html(data, smells, node_metrics, file_tree,
-                       source_files, code_map, config)
+                       source_files, code_map, config, readme_text, gitignore_text)
 
     out = config.output_path
     out.parent.mkdir(parents=True, exist_ok=True)
