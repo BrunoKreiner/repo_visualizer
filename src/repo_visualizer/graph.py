@@ -145,6 +145,10 @@ def _classify_panel_nodes(
         best = max(scores, key=scores.get)
         if scores[best] >= 3:
             classified[node['id']] = best
+        else:
+            nonzero = {k: v for k, v in scores.items() if v > 0}
+            if nonzero:
+                node['_classification_signals'] = nonzero
 
     if not classified:
         return

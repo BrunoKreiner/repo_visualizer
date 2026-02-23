@@ -2740,6 +2740,7 @@ function buildSortPrompt() {
     var edges = DATA.edges || [];
     var title = document.title || 'Python Project';
     var NL = String.fromCharCode(10);
+    /* --- 1. Build import / used-by adjacency maps --- */
     var imps = {}, impBy = {};
     edges.forEach(function(e) {
         if (!imps[e.from]) imps[e.from] = [];
@@ -2747,35 +2748,7 @@ function buildSortPrompt() {
         if (!impBy[e.to]) impBy[e.to] = [];
         impBy[e.to].push(e.from);
     });
-    function insertPath(root, parts) {
-        if (!parts.length) return;
-        var seg = parts[0], rest = parts.slice(1);
-        if (!root[seg]) root[seg] = {};
-        if (rest.length) insertPath(root[seg], rest);
-        else root[seg].__file__ = true;
-    }
-    function renderTree(obj, indent) {
-        var lines = [];
-        var keys = Object.keys(obj).filter(function(k) { return k !== '__file__'; }).sort(function(a, b) {
-            var aIsDir = Object.keys(obj[a]).some(function(k) { return k !== '__file__'; });
-            var bIsDir = Object.keys(obj[b]).some(function(k) { return k !== '__file__'; });
-            if (aIsDir !== bIsDir) return aIsDir ? -1 : 1;
-            return a < b ? -1 : a > b ? 1 : 0;
-        });
-        keys.forEach(function(k) {
-            var childKeys = Object.keys(obj[k]).filter(function(c) { return c !== '__file__'; });
-            if (childKeys.length > 0) {
-                lines.push(indent + k + '/');
-                renderTree(obj[k], indent + '  ').forEach(function(l) { lines.push(l); });
-            } else { lines.push(indent + k); }
-        });
-        return lines;
-    }
-    var treeRoot = {};
-    nodes.forEach(function(n) {
-        var fp = (n.file_path || '').split(String.fromCharCode(92)).join('/');
-        if (fp) insertPath(treeRoot, fp.split('/'));
-    });
+    /* --- 2. Auto-classify obvious nodes first --- */
     function autoClassifyNode(n) {
         var fp = '/' + (n.file_path || '').toLowerCase().split(String.fromCharCode(92)).join('/');
         var base = fp.split('/').pop();
@@ -2808,15 +2781,91 @@ function buildSortPrompt() {
         else ambiguousNodes.push(n);
     });
     window._preClassified = preClassified;
-    var nodeLines = [];
+    /* --- 3. Sort ambiguous nodes by BFS tier (topological order) --- */
+    ambiguousNodes.sort(function(a, b) { return (a.tier || 0) - (b.tier || 0); });
+    /* --- 4. Build directory tree from ambiguous node paths only --- */
+    function insertPath(root, parts) {
+        if (!parts.length) return;
+        var seg = parts[0], rest = parts.slice(1);
+        if (!root[seg]) root[seg] = {};
+        if (rest.length) insertPath(root[seg], rest);
+        else root[seg].__file__ = true;
+    }
+    function renderTree(obj, indent) {
+        var lines = [];
+        var keys = Object.keys(obj).filter(function(k) { return k !== '__file__'; }).sort(function(a, b) {
+            var aIsDir = Object.keys(obj[a]).some(function(k) { return k !== '__file__'; });
+            var bIsDir = Object.keys(obj[b]).some(function(k) { return k !== '__file__'; });
+            if (aIsDir !== bIsDir) return aIsDir ? -1 : 1;
+            return a < b ? -1 : a > b ? 1 : 0;
+        });
+        keys.forEach(function(k) {
+            var childKeys = Object.keys(obj[k]).filter(function(c) { return c !== '__file__'; });
+            if (childKeys.length > 0) {
+                lines.push(indent + k + '/');
+                renderTree(obj[k], indent + '  ').forEach(function(l) { lines.push(l); });
+            } else { lines.push(indent + k); }
+        });
+        return lines;
+    }
+    var ambiguousPathSet = {};
     ambiguousNodes.forEach(function(n) {
+        var fp = (n.file_path || '').split(String.fromCharCode(92)).join('/');
+        if (fp) ambiguousPathSet[fp] = true;
+    });
+    var treeRoot = {};
+    nodes.forEach(function(n) {
+        var fp = (n.file_path || '').split(String.fromCharCode(92)).join('/');
+        if (fp && ambiguousPathSet[fp]) insertPath(treeRoot, fp.split('/'));
+    });
+    /* --- 5. Build node lines with metrics, tier_hint, signals, grouped by file --- */
+    function buildNodeMeta(n) {
+        var metrics = (typeof NODE_METRICS !== 'undefined') ? (NODE_METRICS[n.id] || {}) : {};
+        var meta = (n.type || 'module');
+        if (metrics.ca !== undefined) meta += ', Ca=' + metrics.ca;
+        if (metrics.ce !== undefined) meta += ', Ce=' + metrics.ce;
+        meta += ', tier_hint=' + (n.tier || 0);
+        return meta;
+    }
+    function buildNodeSignals(n) {
+        var signals = n._classification_signals;
+        if (signals && typeof signals === 'object') {
+            var parts = [];
+            Object.keys(signals).forEach(function(k) { if (signals[k] > 0) parts.push(k + '=' + signals[k]); });
+            if (parts.length) return '  signals:' + parts.join(',');
+        }
+        return '';
+    }
+    function buildNodeDeps(n) {
         var imp = (imps[n.id] || []).join(',') || 'none';
         var iby = (impBy[n.id] || []).join(',') || 'none';
-        var line = n.id + ' [' + (n.type || 'module') + '] ' + (n.file_path || '');
-        if (imp !== 'none') line += '  imports:' + imp;
-        if (iby !== 'none') line += '  used_by:' + iby;
-        nodeLines.push(line);
+        var s = '';
+        if (imp !== 'none') s += '  imports:' + imp;
+        if (iby !== 'none') s += '  used_by:' + iby;
+        return s;
+    }
+    var nodeLines = [];
+    var fileGroups = {};
+    var fileOrder = [];
+    ambiguousNodes.forEach(function(n) {
+        var fp = n.file_path || '_no_file_';
+        if (!fileGroups[fp]) { fileGroups[fp] = []; fileOrder.push(fp); }
+        fileGroups[fp].push(n);
     });
+    fileOrder.forEach(function(fp) {
+        var group = fileGroups[fp];
+        if (group.length === 1) {
+            var n = group[0];
+            nodeLines.push(n.id + ' [' + buildNodeMeta(n) + '] ' + fp + buildNodeDeps(n) + buildNodeSignals(n));
+        } else {
+            var firstTier = group[0].tier || 0;
+            nodeLines.push(fp + ' (tier_hint=' + firstTier + '):');
+            group.forEach(function(n) {
+                nodeLines.push('  ' + n.id + ' [' + buildNodeMeta(n) + ']' + buildNodeDeps(n) + buildNodeSignals(n));
+            });
+        }
+    });
+    /* --- 6. Compute top dependency chains (unchanged) --- */
     function isNonCore(fp) {
         var f = (fp || '').toLowerCase().split(String.fromCharCode(92)).join('/');
         var base = f.split('/').pop();
@@ -2841,20 +2890,17 @@ function buildSortPrompt() {
     });
     chains.sort(function(a, b) { return b.length - a.length; });
     var topChains = chains.slice(0, 3);
+    /* --- 7. Assemble prompt --- */
     var L = [];
     L.push('You are a software architecture layout engine for: ' + title);
     if (typeof README === 'string' && README.length > 10) {
         var rm = README.substring(0, 400);
         var lp = rm.lastIndexOf('.'); if (lp > 150) rm = rm.substring(0, lp + 1);
-        L.push(''); L.push('PROJECT OVERVIEW: ' + rm);
+        L.push('PROJECT OVERVIEW: ' + rm);
     }
-    L.push(''); L.push('=== DIRECTORY TREE ===');
+    L.push('=== DIRECTORY TREE ===');
     renderTree(treeRoot, '').forEach(function(l) { L.push(l); });
-    if (typeof GITIGNORE === 'string' && GITIGNORE.length > 5) {
-        L.push(''); L.push('=== .GITIGNORE (paths excluded from diagram — use for context) ===');
-        L.push(GITIGNORE.substring(0, 800));
-    }
-    L.push(''); L.push('=== CLASSIFICATION RULES ===');
+    L.push('=== CLASSIFICATION RULES ===');
     L.push('Assign each node a panel category based on its path and filename:');
     L.push('"tests"      -> path has /tests/ or /test/, filename test_*.py or *_test.py');
     L.push('"utility"    -> shared helpers: *_utils.py, retry_*, *_logging*, *_helper*');
@@ -2865,29 +2911,32 @@ function buildSortPrompt() {
     L.push('               or filenames: prepare_*, migrate_*, cleanup_*, setup_*');
     L.push('null         -> MAIN DIAGRAM. Keep all production code in the import chain.');
     L.push('               When in doubt, use null.');
-    L.push(''); L.push('=== TIER RULES (0 = top) ===');
+    L.push('=== TIER RULES (0 = top) ===');
     L.push('0 = Primary entry points ONLY. NEVER tests. NEVER scripts-panel nodes.');
     L.push('1 = Runners/orchestration   2 = Core logic   3 = Domain support');
     L.push('4 = Abstractions (ABC, base)   5+ = Infrastructure (utils, adapters)');
     L.push('Rule: if A imports B, tier(A) < tier(B). Panel nodes need a tier too.');
-    L.push(''); L.push('=== YOUR TASK ===');
-    L.push('Step 1: Scan the directory tree. Classify every node into a panel.');
-    L.push('Step 2: Use the dependency data below to assign tiers.');
+    L.push('Each node has a tier_hint from BFS traversal. Verify and adjust these —');
+    L.push('they are usually correct but may need semantic refinement.');
+    L.push('Ca = afferent coupling (dependents). Ce = efferent coupling (dependencies).');
+    L.push('=== YOUR TASK ===');
+    L.push('Step 1: Classify each node into a panel based on path, filename, and signals.');
+    L.push('Step 2: Verify tier_hints and adjust where semantics disagree with BFS.');
     var preKeys = Object.keys(preClassified);
     if (preKeys.length > 0) {
         var preGroups = {};
         preKeys.forEach(function(pid) { var pc = preClassified[pid]; preGroups[pc] = (preGroups[pc] || 0) + 1; });
         var preSummary = Object.keys(preGroups).map(function(pc) { return preGroups[pc] + ' ' + pc; }).join(', ');
-        L.push(''); L.push('=== AUTO-CLASSIFIED (' + preKeys.length + ' nodes — omit from response) ===');
+        L.push('=== AUTO-CLASSIFIED (' + preKeys.length + ' nodes — omit from response) ===');
         L.push(preSummary);
     }
-    L.push(''); L.push('=== NODE LIST (' + ambiguousNodes.length + ' nodes) ===');
+    L.push('=== NODE LIST (' + ambiguousNodes.length + ' nodes) ===');
     nodeLines.forEach(function(l) { L.push(l); });
     if (topChains.length) {
-        L.push(''); L.push('=== KEY DEPENDENCY CHAINS ===');
+        L.push('=== KEY DEPENDENCY CHAINS ===');
         topChains.forEach(function(c) { L.push(c.join(' -> ')); });
     }
-    L.push(''); L.push('=== RESPONSE FORMAT ===');
+    L.push('=== RESPONSE FORMAT ===');
     L.push('JSON array only, no explanation:');
     L.push('[{"id": "node_id", "tier": 0, "panel": null}, ...]');
     L.push('ONLY the ' + ambiguousNodes.length + ' listed nodes. null (not "null") for main diagram.');
