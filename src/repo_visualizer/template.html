@@ -622,14 +622,14 @@ html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(-
 .metric-badge.ce-badge { background: rgba(59,130,246,0.12); color: #60a5fa; }
 /* Expand toggle button */
 .expand-toggle-btn {
-    display: flex; align-items: center; justify-content: center;
-    width: 100%; padding: 3px 0; margin-top: 2px;
-    background: transparent; border: none; border-top: 1px solid transparent;
-    font-size: 9px; color: var(--text-muted); cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 4px;
+    width: 100%; padding: 4px 0; margin-top: 2px;
+    background: rgba(255,255,255,0.02); border: none; border-top: 1px solid var(--card-border);
+    font-size: 10px; color: var(--text-secondary); cursor: pointer; letter-spacing: 0.02em;
     transition: all var(--transition-fast); border-radius: 0 0 6px 6px;
 }
-.expand-toggle-btn:hover { color: var(--accent-blue); background: rgba(59,130,246,0.06); border-top-color: var(--card-border); }
-.node-card.expanded .expand-toggle-btn { color: var(--accent-blue); }
+.expand-toggle-btn:hover { color: var(--accent-blue); background: rgba(59,130,246,0.08); }
+.node-card.expanded .expand-toggle-btn { color: var(--accent-blue); background: rgba(59,130,246,0.04); }
 /* Copy prompt icon */
 .copy-prompt-btn {
     position: absolute; top: 6px; right: 28px; width: 20px; height: 20px;
@@ -926,7 +926,7 @@ html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(-
                 <h3>Controls</h3>
                 <div class="controls-help">
                     <kbd>Click</kbd> card to select<br>
-                    <kbd>\u25BC</kbd> button to expand details<br>
+                    <kbd>Show details</kbd> to expand card<br>
                     <kbd>Esc</kbd> or click bg to deselect<br>
                     <kbd>Ctrl+Scroll</kbd> zoom<br>
                     <kbd>Right-click</kbd> context menu<br>
@@ -1373,7 +1373,10 @@ function switchTab(tabId) {
     document.querySelectorAll('.tab-panel').forEach(p => { p.style.display = p.id === 'tab-' + tabId ? '' : 'none'; });
     if (tabId === 'code') {
         renderCodeMap();
-        if (state.focusedNode) openCodeMap();
+        if (state.focusedNode) {
+            // Use rAF to ensure DOM is ready before showing the panel
+            requestAnimationFrame(() => openCodeMap());
+        }
         return;
     }
     closeCodeMap();
@@ -1702,8 +1705,37 @@ function renderCodeMap() {
         navSidebar.innerHTML = '';
         const navFileEl = document.createElement('div');
         navFileEl.className = 'code-nav-file';
+        navFileEl.style.cursor = 'pointer';
         navFileEl.innerHTML = escHtml(fp.split('/').pop()) + '<span class="loc-info">' + (map.total_loc || 0) + ' lines</span>';
+        navFileEl.addEventListener('click', () => openCodeMap());
         navSidebar.appendChild(navFileEl);
+        // Add individual function/method entries in sidebar for quick access
+        (map.classes || []).forEach(cls => {
+            (cls.methods || []).forEach(m => {
+                const item = document.createElement('div');
+                item.className = 'code-nav-item is-method';
+                item.style.cssText = 'padding:3px 8px;font-size:10px;cursor:pointer;color:var(--text-secondary);font-family:var(--font-code)';
+                item.textContent = cls.name + '.' + m.name;
+                item.addEventListener('click', () => { openCodeMap(); requestAnimationFrame(() => { const anc = document.querySelector('#fn-' + m.name.replace(/\\W/g,'_')); if (anc) anc.scrollIntoView({behavior:'smooth',block:'start'}); }); });
+                navSidebar.appendChild(item);
+            });
+        });
+        (map.functions || []).forEach(fn => {
+            const item = document.createElement('div');
+            item.className = 'code-nav-item is-fn';
+            item.style.cssText = 'padding:3px 8px;font-size:10px;cursor:pointer;color:var(--text-secondary);font-family:var(--font-code)';
+            item.textContent = fn.name;
+            item.addEventListener('click', () => { openCodeMap(); requestAnimationFrame(() => { const anc = document.querySelector('#fn-' + fn.name.replace(/\\W/g,'_')); if (anc) anc.scrollIntoView({behavior:'smooth',block:'start'}); }); });
+            navSidebar.appendChild(item);
+        });
+        // Add a clear "open source" button
+        const openBtn = document.createElement('button');
+        openBtn.style.cssText = 'display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin-top:8px;padding:8px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);border-radius:6px;color:var(--accent-blue);font-size:11px;cursor:pointer;font-weight:600;transition:all 0.15s ease';
+        openBtn.textContent = 'Open Source Code';
+        openBtn.addEventListener('mouseenter', () => { openBtn.style.background = 'rgba(59,130,246,0.2)'; });
+        openBtn.addEventListener('mouseleave', () => { openBtn.style.background = 'rgba(59,130,246,0.1)'; });
+        openBtn.addEventListener('click', () => openCodeMap());
+        navSidebar.appendChild(openBtn);
     }
 
     /* --- Build continuous code view --- */
@@ -2239,7 +2271,7 @@ function buildNodeCard(n) {
     });
     // Expand toggle button (separate from card selection)
     const isExpanded = state.expandedNodes.has(n.id);
-    html += '<button class="expand-toggle-btn" title="' + (isExpanded ? 'Collapse details' : 'Expand details') + '">' + (isExpanded ? '\u25B2' : '\u25BC') + '</button>';
+    html += '<button class="expand-toggle-btn" title="' + (isExpanded ? 'Collapse details' : 'Expand details') + '">' + (isExpanded ? '\u25B2 Hide details' : '\u25BC Show details') + '</button>';
     card.innerHTML = html;
     // Method/function -> Code Map links
     card.querySelectorAll('[data-view-fn]').forEach(el => {
