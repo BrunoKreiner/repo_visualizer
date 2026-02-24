@@ -9,7 +9,7 @@ Generate interactive architecture diagrams for any Python repository with a sing
 ## Install
 
 ```bash
-pip install repo-visualizer
+pip install --upgrade git+https://github.com/BrunoKreiner/repo_visualizer.git
 ```
 
 ## Usage
@@ -21,11 +21,6 @@ repo-visualizer .
 # Specify output and title
 repo-visualizer /path/to/project -o diagram.html --title "My Project"
 
-# With LLM-generated descriptions
-repo-visualizer . --llm openai          # requires OPENAI_API_KEY
-repo-visualizer . --llm claude           # requires ANTHROPIC_API_KEY
-repo-visualizer . --llm claude-code      # uses Claude Code CLI
-
 # Output raw JSON (for custom processing)
 repo-visualizer . --json -o data.json
 
@@ -33,21 +28,38 @@ repo-visualizer . --json -o data.json
 repo-visualizer . -v
 ```
 
+Then open the generated HTML file in your browser.
+
 ## What You Get
 
 An interactive single-file HTML diagram with:
 
-- **Node cards** for every class, module, and script -- with methods, fields, and type signatures
+- **Node cards** for every class, module, and script with methods, fields, and type signatures
 - **Dependency edges** auto-detected from import analysis
 - **Tiered layout** via topological sort (entry points at top)
 - **Directory-based grouping** with color coding
 - **File explorer** with source code viewer and syntax highlighting
-- **Code map** with clickable cross-references between classes
-- **Architectural smell detection** (see below)
+- **Code map** with clickable cross-references between functions and classes
+- **Architectural smell detection** for common code quality issues
+- **AI Layout** -- copy a prompt to any LLM to refine tier and panel placement
+- **Task tracking** -- add tasks linked to specific nodes, with priorities and export
+
+## Interactive Features
+
+| Feature | How |
+|---------|-----|
+| **Select a node** | Click any card |
+| **Expand details** | Click the arrow button at the bottom of a card |
+| **View source code** | Click the `</>` button on a card, or press `C` |
+| **Search nodes** | Type in the search bar |
+| **Zoom** | `Ctrl+Scroll` or use the +/- buttons |
+| **Context menu** | Right-click any card for analysis prompts |
+| **Add a task** | Press `N` with a node selected, or right-click > Add task |
+| **AI Layout** | Click "AI Layout" to get a prompt for LLM-powered diagram reorganization |
 
 ## Smell Detection
 
-repo-visualizer detects 12 architectural smells:
+repo-visualizer detects architectural smells:
 
 | Smell | Severity | What It Detects |
 |-------|----------|-----------------|
@@ -74,8 +86,6 @@ repo-visualizer [PATH] [OPTIONS]
   -o, --output PATH      Output HTML file (default: architecture_diagram.html)
   --title TEXT            Diagram title (default: directory name)
   --exclude-dirs DIRS    Extra dirs to exclude (comma-separated)
-  --llm PROVIDER         none|openai|claude|gemini|claude-code (default: none)
-  --llm-model MODEL      Specific model name
   --no-smells            Disable smell detection
   --no-source            Don't embed source code (smaller output)
   --max-nodes N          Maximum nodes to render (default: 100)
@@ -84,20 +94,14 @@ repo-visualizer [PATH] [OPTIONS]
   --version              Show version
 ```
 
-## LLM Descriptions
+## MCP Server
 
-By default, node descriptions use docstrings or structural heuristics. For richer summaries:
+repo-visualizer also ships as an MCP tool for use with Claude Code and other MCP-compatible assistants:
 
 ```bash
-# Via API (install optional deps)
-pip install repo-visualizer[openai]    # or [claude] or [gemini]
-repo-visualizer . --llm openai
-
-# Via Claude Code CLI (no extra deps)
-repo-visualizer . --llm claude-code
+pip install --upgrade "git+https://github.com/BrunoKreiner/repo_visualizer.git#egg=repo-visualizer[mcp]"
+repo-visualizer-mcp
 ```
-
-Descriptions are cached to `.repo-visualizer-cache/` to avoid repeated API calls.
 
 ## License
 
