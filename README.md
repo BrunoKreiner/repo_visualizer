@@ -16,17 +16,19 @@ pip install --upgrade git+https://github.com/BrunoKreiner/repo_visualizer.git
 
 ```bash
 # Generate diagram for current directory
-repo-visualizer .
+repo_visualizer .
 
 # Specify output and title
-repo-visualizer /path/to/project -o diagram.html --title "My Project"
+repo_visualizer /path/to/project -o diagram.html --title "My Project"
 
 # Output raw JSON (for custom processing)
-repo-visualizer . --json -o data.json
+repo_visualizer . --json -o data.json
 
 # Verbose mode
-repo-visualizer . -v
+repo_visualizer . -v
 ```
+
+> **Note:** `python -m repo_visualizer` also works but picks up the local source if you run it from inside a cloned copy of this repo. Use the `repo_visualizer` command to always run the installed version.
 
 Then open the generated HTML file in your browser.
 
@@ -80,7 +82,7 @@ All thresholds are configurable. Smells appear as an interactive overlay in the 
 ## CLI Options
 
 ```
-repo-visualizer [PATH] [OPTIONS]
+repo_visualizer [PATH] [OPTIONS]
 
   PATH                   Repository root (default: .)
   -o, --output PATH      Output HTML file (default: architecture_diagram.html)
@@ -96,11 +98,11 @@ repo-visualizer [PATH] [OPTIONS]
 
 ## MCP Server
 
-repo-visualizer also ships as an MCP tool for use with Claude Code and other MCP-compatible assistants:
+repo_visualizer also ships as an MCP tool for use with Claude Code and other MCP-compatible assistants:
 
 ```bash
 pip install --upgrade "git+https://github.com/BrunoKreiner/repo_visualizer.git#egg=repo-visualizer[mcp]"
-repo-visualizer-mcp
+repo_visualizer-mcp
 ```
 
 ## License
