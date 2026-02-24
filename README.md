@@ -28,7 +28,7 @@ repo_visualizer . --json -o data.json
 repo_visualizer . -v
 ```
 
-> Both `repo_visualizer` and `python -m repo_visualizer` work. On some systems `repo-visualizer` (with a hyphen) also works.
+> **Note:** `python -m repo_visualizer` also works but picks up the local source if you run it from inside a cloned copy of this repo. Use the `repo_visualizer` command to always run the installed version.
 
 Then open the generated HTML file in your browser.
 
